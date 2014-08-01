@@ -72,24 +72,40 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 			return;
 		}
 
-		preprocessIn = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR , w*h * sizeof(T) * components.size(), rgbBuffer, &error_code);
+		//allocate input buffer
+		cl_image_desc desc;
+		desc.image_type = CL_MEM_OBJECT_IMAGE2D;
+		desc.image_width = w;
+		desc.image_height = h;
+		desc.image_depth = 0;
+		desc.image_array_size = 0;
+		desc.image_row_pitch = 0;
+		desc.image_slice_pitch = 0;
+		desc.num_mip_levels = 0;
+		desc.num_samples = 0;
+		desc.buffer = NULL;
+
+		cl_image_format format;
+		format.image_channel_order = components.size() == 3 ? CL_RGBA : CL_R;
+		format.image_channel_data_type = CL_UNSIGNED_INT16;
+		preprocessIn = clCreateImage (context, CL_MEM_READ_ONLY, &format, &desc,	NULL,	&error_code);
 		if (CL_SUCCESS != error_code)
 		{
-			LogError("Error: clCreateBuffer (in) returned %s.\n", TranslateOpenCLError(error_code));
+			LogError("Error: clCreateImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
+			return;
+		}
+		format.image_channel_data_type = floatingPointOnDevice ? CL_FLOAT : CL_SIGNED_INT32;
+		preprocessOut = clCreateImage (context, CL_MEM_READ_WRITE| CL_MEM_USE_HOST_PTR, &format, &desc, rgbBuffer,&error_code);
+		if (CL_SUCCESS != error_code)
+		{
+			LogError("Error: clCreateImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
 			return;
 		}
 
-		preprocessOut = clCreateBuffer(context, CL_MEM_READ_WRITE, w*h* (floatingPointOnDevice ? sizeof(float) : sizeof(int) ) * components.size(), NULL, &error_code);
+		dwtOut = clCreateImage (context, CL_MEM_READ_WRITE, &format, &desc, NULL,&error_code);
 		if (CL_SUCCESS != error_code)
 		{
-			LogError("Error: clCreateBuffer (in) returned %s.\n", TranslateOpenCLError(error_code));
-			return;
-		}
-		
-		dwtOut = clCreateBuffer(context, CL_MEM_READ_WRITE, w*h* (floatingPointOnDevice ? sizeof(float) : sizeof(int) ) * components.size(), NULL, &error_code);
-		if (CL_SUCCESS != error_code)
-		{
-			LogError("Error: clCreateBuffer (in) returned %s.\n", TranslateOpenCLError(error_code));
+			LogError("Error: clCreateImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
 			return;
 		}
 
@@ -100,7 +116,9 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 	
 		fillHostInputBuffer(components,width,height);
 
-		cl_int error_code  = clEnqueueWriteBuffer(ocl->commandQueue, preprocessIn, CL_TRUE, 0, sizeof(T) * width*height * components.size(), rgbBuffer, 0, NULL, NULL);
+		size_t origin[] = {0,0,0}; // Defines the offset in pixels in the image from where to write.
+		size_t region[] = {width, height, 1}; // Size of object to be transferred
+		cl_int error_code = clEnqueueWriteImage(ocl->commandQueue, preprocessOut, CL_FALSE, origin, region,0,0, rgbBuffer, 0, NULL,NULL);
 		if (CL_SUCCESS != error_code)
 		{
 			LogError("Error: clEnqueueWriteImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
@@ -108,6 +126,50 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 		}
 
 	}
+
+}
+
+template<typename T> tDeviceRC OCLMemoryManager<T>::mapImage(cl_mem img, void** mappedPtr){
+	if (!mappedPtr)
+		return -1;
+
+	cl_int error_code = CL_SUCCESS;
+	size_t image_dimensions[3] = { width, height, 1 };
+    size_t image_origin[3] = { 0, 0, 0 };
+    size_t image_pitch = 0;
+
+    *mappedPtr = clEnqueueMapImage(   ocl->commandQueue,
+                                            img,
+                                            CL_TRUE,
+                                            CL_MAP_READ,
+                                            image_origin,
+                                            image_dimensions,
+                                            &image_pitch,
+                                            NULL,
+                                            0,
+                                            NULL,
+                                            NULL,
+                                            &error_code);
+    if (CL_SUCCESS != error_code)
+    {
+        LogError("Error: clEnqueueMapBuffer return %s.\n", TranslateOpenCLError(error_code));
+
+    }
+
+	return error_code;
+}
+
+template<typename T> tDeviceRC OCLMemoryManager<T>::unmapImage(cl_mem img, void* mappedPtr){
+	if (!mappedPtr)
+		return -1;
+
+	cl_int error_code = clEnqueueUnmapMemObject( ocl->commandQueue, img, mappedPtr, 0,NULL,NULL);
+	 if (CL_SUCCESS != error_code)
+    {
+        LogError("Error: clEnqueueUnmapMemObject return %s.\n", TranslateOpenCLError(error_code));
+
+    }
+	return error_code;	
 
 }
 

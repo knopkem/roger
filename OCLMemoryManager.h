@@ -35,6 +35,9 @@ public:
 
 	void init(std::vector<T*> components, size_t w, size_t h, bool floatingPointOnDevice);
 
+	tDeviceRC mapImage(cl_mem img, void** mappedPtr);
+	tDeviceRC unmapImage(cl_mem, void* mappedPtr);
+
 private:
 	void fillHostInputBuffer(std::vector<T*> components, size_t w,	size_t h);
 	void freeBuffers();

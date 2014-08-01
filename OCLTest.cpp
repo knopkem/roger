@@ -19,17 +19,20 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 
+#include "OCLEncoder.cpp"
+
 using namespace cv;
 
 
 #include "OCLBasic.h"
 #include "OCLDeviceManager.h"
+#include "OCLDWT.cpp"
 
 
-#define OCL_SAMPLE_IMAGE_NAME "man.bmp"
+#define OCL_SAMPLE_IMAGE_NAME "2048x2048.jpg"
 
 
-OCLTest::OCLTest(void)
+OCLTest::OCLTest(void) : encoder(NULL)
 {
 }
 
@@ -59,7 +62,9 @@ Mat ReadInputImage(const std::string &fileName, int flag, int alignCols, int ali
 }
 void OCLTest::test()
 {
-    
+
+	testInit();
+
     // Read the input image
     Mat img_src = ReadInputImage(OCL_SAMPLE_IMAGE_NAME, CV_8UC1, 8, 64);
     if (img_src.empty())
@@ -71,24 +76,24 @@ void OCLTest::test()
     Mat img_dst = Mat::zeros(img_src.size(), CV_8UC1);
     int imageSize = img_src.cols * img_src.rows;
 
-	OCLDeviceManager* deviceManager = new OCLDeviceManager();
-	deviceManager->init();
+
 
    //  imshow("Before:", img_src);
    //  waitKey();
 
-	unsigned char* input = new unsigned char[imageSize];
+	int* input = new int[imageSize];
     for (int i = 0; i < imageSize; ++i) {
         input[i] = img_src.ptr()[i];
     }
 
 	
-	std::vector<unsigned char*> components;
+	std::vector<int*> components;
 	components.push_back(input);
+
 	double t = my_clock();
 	int numIterations = 10;
 	for (int j =0; j < numIterations; ++j) { 
-	   testRun();
+	   testRun(components, img_src.cols, img_src.rows);
 	}
 	testFinish();
 	t = my_clock() - t;
@@ -97,21 +102,34 @@ void OCLTest::test()
 	int* results = getTestResults();
 	if (results) {
 		for (int i = 0; i < imageSize; ++i)
-			img_dst.ptr()[i] =  results[i] + 128;
+			img_dst.ptr()[i] =  (results[i] & 0xFF);
 
 	}
+
+	encoder->unmapOutput(results);
     imshow("After:", img_dst);
     waitKey();
 
 }
 
-void OCLTest::testRun() {
+void OCLTest::testInit() {
+	OCLDeviceManager* deviceManager = new OCLDeviceManager();
+	deviceManager->init();
+	encoder = new OCLEncoder<int>(deviceManager->getInfo(), false);
+
+}
+
+
+void OCLTest::testRun(std::vector<int*> components,int w,int h) {
+	encoder->encode(components,w,h);
 }
 
 void OCLTest::testFinish() {
+	encoder->finish();
 }
 
 int* OCLTest::getTestResults(){
-
-	return NULL;
+	void* ptr;
+	encoder->mapOutput(&ptr);
+	return (int*)ptr;
 }

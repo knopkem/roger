@@ -15,23 +15,26 @@
 
 #pragma once
 
-#include "OCLUtil.h"
-#include "OCLEncoder.h"
+#include "OCLDWT.h"
+struct ocl_args_d_t;
+#include <vector>
+#include "OCLMemoryManager.h"
 
-class OCLTest
+
+template<typename T>  class OCLEncoder
 {
 public:
-	OCLTest(void);
-	~OCLTest(void);
-
-	void test();
+	OCLEncoder(ocl_args_d_t* ocl, bool isLossy);
+	~OCLEncoder(void);
+	void encode(std::vector<T*> components,int w,int h);
+	void copyPreprocessedDataToHost(bool isLossy, std::vector<T*> components);
+	tDeviceRC mapOutput(void** mappedPtr);
+	tDeviceRC unmapOutput(void* mappedPtr);
+	void finish(void);
 private:
-	void testInit();
-    void testRun(std::vector<int*> components,int w,int h);
-	void testFinish();
-	int* getTestResults();
-
-	OCLEncoder<int>* encoder;
-
+	ocl_args_d_t* _ocl;
+	bool lossy;
+	OCLMemoryManager<T>* memoryManager;
+	OCLDWT<T>* forward53;
+	
 };
-

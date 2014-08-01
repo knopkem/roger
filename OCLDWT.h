@@ -15,23 +15,25 @@
 
 #pragma once
 
-#include "OCLUtil.h"
-#include "OCLEncoder.h"
+#include "OCLKernel.h"
+#include <vector>
+#include "OCLMemoryManager.h"
 
-class OCLTest
+
+
+template<typename T> class OCLDWT
 {
 public:
-	OCLTest(void);
-	~OCLTest(void);
+	OCLDWT(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr);
+	~OCLDWT(void);
 
-	void test();
+	void encode(bool lossy, std::vector<int*> components,int w,	int h);
 private:
-	void testInit();
-    void testRun(std::vector<int*> components,int w,int h);
-	void testFinish();
-	int* getTestResults();
 
-	OCLEncoder<int>* encoder;
+	tDeviceRC setKernelArgs(OCLKernel* myKernel);
+	KernelInitInfoBase initInfo;
+	OCLMemoryManager<T>* memoryManager;
+	OCLKernel* forward53;
 
 };
 

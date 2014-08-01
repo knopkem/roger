@@ -154,6 +154,8 @@
   <ItemGroup>
     <ClInclude Include="OCLBasic.h" />
     <ClInclude Include="OCLDeviceManager.h" />
+    <ClInclude Include="OCLDWT.h" />
+    <ClInclude Include="OCLEncoder.h" />
     <ClInclude Include="OCLTest.h" />
     <ClInclude Include="OCLKernel.h" />
     <ClInclude Include="OCLMemoryManager.h" />
@@ -165,6 +167,8 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="OCLBasic.cpp" />
     <ClCompile Include="OCLDeviceManager.cpp" />
+    <ClCompile Include="OCLDWT.cpp" />
+    <ClCompile Include="OCLEncoder.cpp" />
     <ClCompile Include="OCLTest.cpp" />
     <ClCompile Include="OCLKernel.cpp" />
     <ClCompile Include="OCLMemoryManager.cpp" />
