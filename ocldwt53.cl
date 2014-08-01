@@ -1,0 +1,1 @@
+#include "ocl_platform.cl"
