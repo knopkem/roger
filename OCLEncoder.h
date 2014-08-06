@@ -27,7 +27,6 @@ public:
 	OCLEncoder(ocl_args_d_t* ocl, bool isLossy);
 	~OCLEncoder(void);
 	void encode(std::vector<T*> components,int w,int h);
-	void copyPreprocessedDataToHost(bool isLossy, std::vector<T*> components);
 	tDeviceRC mapOutput(void** mappedPtr);
 	tDeviceRC unmapOutput(void* mappedPtr);
 	void finish(void);

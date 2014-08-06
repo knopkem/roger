@@ -20,6 +20,11 @@
 #include <stdint.h>
 
 
+inline int divRndUp(const int n, const int d) {
+	return n/d + !!(n % d); 
+  }
+
+
 template<typename T> OCLDWT<T>::OCLDWT(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr) : 
 	                initInfo(initInfo),
 					memoryManager(memMgr),
@@ -36,31 +41,31 @@ template<typename T> OCLDWT<T>::~OCLDWT(void)
 		delete forward53;
 }
 
-template<typename T> void OCLDWT<T>::encode(bool lossy, std::vector<int*> components,	int w,	int h) {
+template<typename T> void OCLDWT<T>::encode(bool lossy, std::vector<int*> components,	int w,	int h, int windowX, int windowY) {
 
 	if (components.size() == 0)
 		return;
 	OCLKernel* targetKernel = forward53;
 	memoryManager->init(components,w,h,lossy);
-	setKernelArgs(targetKernel);
-	int workGroupDim = 16;
-	size_t local_work_size[3] = {workGroupDim,workGroupDim,1};
-	int numGroupsX = (size_t)ceil(((float)memoryManager->getWidth())/workGroupDim);
-	int numGroupsY = (size_t)ceil(((float)memoryManager->getHeight())/workGroupDim);
-	size_t global_work_size[3] = {workGroupDim * numGroupsX, workGroupDim * numGroupsY,1};
-	targetKernel->enqueue(2,global_work_size, local_work_size);
+	const int steps = divRndUp(h, 15 * windowY);
+	setKernelArgs(targetKernel,steps);
+
+   size_t global_work_size[3] = {divRndUp(w, windowX) * windowX, divRndUp(h, windowY * steps),1};
+   size_t local_work_size[3] = {windowX,1,1};
+
+  targetKernel->enqueue(2,global_work_size, local_work_size);
 
 
 }
 
 
-template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel){
+template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,int steps){
 
 	cl_int error_code =  DeviceSuccess;
 	cl_kernel targetKernel = myKernel->getKernel();
 	int argNum = 0;
-	unsigned int width = memoryManager->getWidth();
-	unsigned int height = memoryManager->getHeight();
+	unsigned int width = (unsigned int)memoryManager->getWidth();
+	unsigned int height = (unsigned int)memoryManager->getHeight();
 
 	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(cl_mem),  memoryManager->getPreprocessOut());
 	if (DeviceSuccess != error_code)
@@ -87,7 +92,12 @@ template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel){
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
 		return error_code;
 	}
-	
+	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(steps), &steps);
+	if (DeviceSuccess != error_code)
+	{
+		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
+		return error_code;
+	}	
 	return DeviceSuccess;
 }
 

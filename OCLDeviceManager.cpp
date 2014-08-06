@@ -52,8 +52,9 @@ ocl_args_d_t* OCLDeviceManager::getInfo(eDeviceType type){
 }
 
 int OCLDeviceManager::init() {
-	int rc = init(GPU);
-	return init(CPU) && rc;
+	int rcGPU = init(GPU);
+	int rcCPU = init(CPU);
+	return rcGPU || rcCPU;
 }
 
 int OCLDeviceManager::init(eDeviceType type){

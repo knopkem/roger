@@ -27,10 +27,10 @@ public:
 	OCLDWT(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr);
 	~OCLDWT(void);
 
-	void encode(bool lossy, std::vector<int*> components,int w,	int h);
+	void encode(bool lossy, std::vector<int*> components,int w,	int h,int windowX, int windowY);
 private:
 
-	tDeviceRC setKernelArgs(OCLKernel* myKernel);
+	tDeviceRC setKernelArgs(OCLKernel* myKernel,int steps);
 	KernelInitInfoBase initInfo;
 	OCLMemoryManager<T>* memoryManager;
 	OCLKernel* forward53;

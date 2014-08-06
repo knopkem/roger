@@ -40,7 +40,7 @@ template<typename T> OCLEncoder<T>::~OCLEncoder(){
 
 template<typename T> void OCLEncoder<T>::encode(std::vector<T*> components,int w,int h){
 	memoryManager->init(components,w,h,false);
-	forward53->encode(lossy, components, w,h);
+	forward53->encode(lossy, components, w,h, 128,8);
 }
 
 template<typename T> void OCLEncoder<T>::finish(void){
@@ -56,14 +56,3 @@ template<typename T> tDeviceRC OCLEncoder<T>::unmapOutput(void* mappedPtr){
 	return memoryManager->unmapImage(*memoryManager->getDwtOut(), mappedPtr);
 }
 
-template<typename T> void OCLEncoder<T>::copyPreprocessedDataToHost(bool isLossy, std::vector<T*> components){
-	
-	if (!forward53)
-		return;
-	if (components.size() == 3 && isLossy) {
-		forward53->copyFloatsFromDevice(components);
-	} else {
-		forward53->copyShortsFromDevice(components, isLossy);
-	}
-
-}

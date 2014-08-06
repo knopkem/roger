@@ -57,9 +57,10 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 
 	if (w != width || h != height) {
 
+		int numDeviceChannels = components.size() ==3 ? 4 : 1;
 		freeBuffers();
 		cl_uint align = requiredOpenCLAlignment(ocl->device);
-		rgbBuffer = (T*)aligned_malloc(w*h*sizeof(T) * components.size(), 4*1024);
+		rgbBuffer = (T*)aligned_malloc(w*h*sizeof(T) * numDeviceChannels, 4*1024);
 
 		fillHostInputBuffer(components,w,h);
 
@@ -86,7 +87,7 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 		desc.buffer = NULL;
 
 		cl_image_format format;
-		format.image_channel_order = components.size() == 3 ? CL_RGBA : CL_R;
+		format.image_channel_order = numDeviceChannels == 4 ? CL_RGBA : CL_R;
 		format.image_channel_data_type = CL_UNSIGNED_INT16;
 		preprocessIn = clCreateImage (context, CL_MEM_READ_ONLY, &format, &desc,	NULL,	&error_code);
 		if (CL_SUCCESS != error_code)

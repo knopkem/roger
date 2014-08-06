@@ -66,7 +66,7 @@ void OCLTest::test()
 	testInit();
 
     // Read the input image
-    Mat img_src = ReadInputImage(OCL_SAMPLE_IMAGE_NAME, CV_8UC1, 8, 64);
+    Mat img_src = ReadInputImage(OCL_SAMPLE_IMAGE_NAME, CV_8UC3, 8, 64);
     if (img_src.empty())
     {
         LogError("Cannot read image file: %s\n", OCL_SAMPLE_IMAGE_NAME);
@@ -83,15 +83,18 @@ void OCLTest::test()
 
 	int* input = new int[imageSize];
     for (int i = 0; i < imageSize; ++i) {
-        input[i] = img_src.ptr()[i];
+        input[i] = img_src.data[i];
     }
 
-	
+	//simulate RGB image
 	std::vector<int*> components;
 	components.push_back(input);
+	//components.push_back(input);
+	//components.push_back(input);
+
 
 	double t = my_clock();
-	int numIterations = 10;
+	int numIterations = 15;
 	for (int j =0; j < numIterations; ++j) { 
 	   testRun(components, img_src.cols, img_src.rows);
 	}
@@ -102,13 +105,18 @@ void OCLTest::test()
 	int* results = getTestResults();
 	if (results) {
 		for (int i = 0; i < imageSize; ++i)
-			img_dst.ptr()[i] =  (results[i] & 0xFF);
+			img_dst.data[i] =  results[i];
 
 	}
 
 	encoder->unmapOutput(results);
+	delete encoder;
+	delete[] input;
+
     imshow("After:", img_dst);
     waitKey();
+
+
 
 }
 
