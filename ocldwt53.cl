@@ -39,9 +39,9 @@ inline int parityIdx(int THREADS) {
 ///					Must be divisible by 2, because half of the boundary lies on the left of the image,
 ///                 half lies on the right
  
-#define BUF_SIZE_X      (WIN_SIZE_X)
+#define BUF_SIZE_X      WIN_SIZE_X
 
-#define BUF_SIZE_Y		11			 // WIN_SIZE_Y + 3
+#define BUF_SIZE_Y		11			 // WIN_SIZE_Y + 3 (two boundary columns on left, and one on right)
 
 // x boundary
 #define BOUNDARY_X		2
@@ -68,14 +68,72 @@ CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_MIRRORED_R
 void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,   
                        const unsigned int  width, const unsigned int  height, const unsigned int steps) {
 	LOCAL int scratch[TOTAL_BUFFER_SIZE*4];
-	for (int j = 0; j < WIN_SIZE_Y * steps; ++j) {
-		const int2 pos = {get_global_id(0), j + get_global_id(1) *steps*WIN_SIZE_Y};
-		if (pos.x < width && pos.y < height) {
-			const float2 posNormal = {pos.x/(float)width, pos.y/(float)height};
-			int4 pix =  read_imagei(idata, sampler, posNormal);
-			vstore4(pix, 0, scratch);
-			write_imagei(odata, pos,pix);
+
+	//cache last three pixels
+	int pixCache[3];
+	
+	int firstY = get_global_id(1) *steps*WIN_SIZE_Y;
+
+
+	//1. initialize column (and perhaps boundary column)
+
+	//2. read column into scratch
+
+	//3. vertically transform column
+
+	//4. horizontally transform all rows corresponding to this column
+
+	//5. write into destination
+
+
+	int yIndex = getGlobalId(1) * steps * WIN_SIZE_Y;
+	for (int i = 0; i < steps; ++i) {
+
+	   //store a line in local memory
+	   for (int j = 0; j < WIN_SIZE_Y; ++j) {
+	   
+			const int2 pos = {getGlobalId(0), yIndex + j };
+			
+			if (pos.x < width && pos.y < height) {
+			
+				const float2 posNormal = {pos.x/(float)width, pos.y/(float)height};
+				int4 pix = read_imagei(idata, sampler, posNormal);
+		
+				int channelIndex = pos.x + pos.y * width;
+				scratch[channelIndex] = pix.x;
+				
+				channelIndex += TOTAL_BUFFER_SIZE;
+				scratch[channelIndex] = pix.y;
+				channelIndex += TOTAL_BUFFER_SIZE;
+				scratch[channelIndex] = pix.z;
+				channelIndex += TOTAL_BUFFER_SIZE;
+				scratch[channelIndex] = pix.w;
+				
+			}
 		}
+	
+		// read from local memory and store in destination
+		for (int j = 0; j < WIN_SIZE_Y; ++j) {
+			const int2 pos = {getGlobalId(0), yIndex + j };
+			if (pos.x < width && pos.y < height) {
+				int channelIndex = pos.x + pos.y * width;
+				int4 pix;
+
+				pix.x = scratch[channelIndex];
+				channelIndex += TOTAL_BUFFER_SIZE;
+				pix.y = scratch[channelIndex] ;
+				channelIndex += TOTAL_BUFFER_SIZE;
+				pix.z = scratch[channelIndex];
+				channelIndex += TOTAL_BUFFER_SIZE;
+				pix.w = scratch[channelIndex];
+				
+
+				//write
+				//write_imagei(odata, pos,pix);
+
+			}
+		}
+		yIndex += WIN_SIZE_Y;
 	}
 	
 }
