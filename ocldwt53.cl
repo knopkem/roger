@@ -99,16 +99,16 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 				const float2 posNormal = {pos.x/(float)width, pos.y/(float)height};
 				int4 pix = read_imagei(idata, sampler, posNormal);
 		
-				int channelIndex = pos.x + pos.y * width;
+				int channelIndex = getLocalId(0) + j * WIN_SIZE_X;
 				scratch[channelIndex] = pix.x;
-				
 				channelIndex += TOTAL_BUFFER_SIZE;
 				scratch[channelIndex] = pix.y;
 				channelIndex += TOTAL_BUFFER_SIZE;
 				scratch[channelIndex] = pix.z;
 				channelIndex += TOTAL_BUFFER_SIZE;
 				scratch[channelIndex] = pix.w;
-				
+
+
 			}
 		}
 	
@@ -116,20 +116,18 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 		for (int j = 0; j < WIN_SIZE_Y; ++j) {
 			const int2 pos = {getGlobalId(0), yIndex + j };
 			if (pos.x < width && pos.y < height) {
-				int channelIndex = pos.x + pos.y * width;
+				int channelIndex = getLocalId(0) + j * WIN_SIZE_X;
 				int4 pix;
-
-				pix.x = scratch[channelIndex];
+				pix.x = scratch[channelIndex] ;
 				channelIndex += TOTAL_BUFFER_SIZE;
-				pix.y = scratch[channelIndex] ;
+				pix.y = scratch[channelIndex];
 				channelIndex += TOTAL_BUFFER_SIZE;
 				pix.z = scratch[channelIndex];
 				channelIndex += TOTAL_BUFFER_SIZE;
 				pix.w = scratch[channelIndex];
-				
 
 				//write
-				//write_imagei(odata, pos,pix);
+				write_imagei(odata, pos,pix);
 
 			}
 		}
