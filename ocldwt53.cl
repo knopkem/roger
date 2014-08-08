@@ -94,44 +94,53 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	   
 			const int2 pos = {getGlobalId(0), yIndex + j };
 			
-			if (pos.x < width && pos.y < height) {
-			
-				const float2 posNormal = {pos.x/(float)width, pos.y/(float)height};
-				int4 pix = read_imagei(idata, sampler, posNormal);
+			const float2 posNormal = {pos.x/(float)width, pos.y/(float)height};
+			int4 pix = read_imagei(idata, sampler, posNormal);
 		
-				int channelIndex = getLocalId(0) + j * WIN_SIZE_X;
-				scratch[channelIndex] = pix.x;
-				channelIndex += TOTAL_BUFFER_SIZE;
-				scratch[channelIndex] = pix.y;
-				channelIndex += TOTAL_BUFFER_SIZE;
-				scratch[channelIndex] = pix.z;
-				channelIndex += TOTAL_BUFFER_SIZE;
-				scratch[channelIndex] = pix.w;
+			int channelIndex = getLocalId(0) + j * WIN_SIZE_X;
+			scratch[channelIndex] = pix.x;
+			channelIndex += TOTAL_BUFFER_SIZE;
+			scratch[channelIndex] = pix.y;
+			channelIndex += TOTAL_BUFFER_SIZE;
+			scratch[channelIndex] = pix.z;
+			channelIndex += TOTAL_BUFFER_SIZE;
+			scratch[channelIndex] = pix.w;
 
-
-			}
 		}
 	
+	    localMemoryFence();
 		// read from local memory and store in destination
 		for (int j = 0; j < WIN_SIZE_Y; ++j) {
 			const int2 pos = {getGlobalId(0), yIndex + j };
 			if (pos.x < width && pos.y < height) {
+				int4 pix1, pix2;
+				//get pixel 1
 				int channelIndex = getLocalId(0) + j * WIN_SIZE_X;
-				int4 pix;
-				pix.x = scratch[channelIndex] ;
+				pix1.x = scratch[channelIndex] ;
 				channelIndex += TOTAL_BUFFER_SIZE;
-				pix.y = scratch[channelIndex];
+				pix1.y = scratch[channelIndex];
 				channelIndex += TOTAL_BUFFER_SIZE;
-				pix.z = scratch[channelIndex];
+				pix1.z = scratch[channelIndex];
 				channelIndex += TOTAL_BUFFER_SIZE;
-				pix.w = scratch[channelIndex];
+				pix1.w = scratch[channelIndex];
 
-				//write
-				write_imagei(odata, pos,pix);
+				//get pixel 2
+				channelIndex = getLocalId(0) + 1 + j * WIN_SIZE_X;
+				pix2.x = scratch[channelIndex] ;
+				channelIndex += TOTAL_BUFFER_SIZE;
+				pix2.y = scratch[channelIndex];
+				channelIndex += TOTAL_BUFFER_SIZE;
+				pix2.z = scratch[channelIndex];
+				channelIndex += TOTAL_BUFFER_SIZE;
+				pix2.w = scratch[channelIndex];
+
+				//write average ( there are boundary errors at the moment)
+				write_imagei(odata, pos,(pix1+pix2)/2);
 
 			}
 		}
 		yIndex += WIN_SIZE_Y;
+		localMemoryFence();
 	}
 	
 }
