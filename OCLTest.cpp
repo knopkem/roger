@@ -29,7 +29,7 @@ using namespace cv;
 #include "OCLDWT.cpp"
 
 
-#define OCL_SAMPLE_IMAGE_NAME "2048x2048.jpg"
+#define OCL_SAMPLE_IMAGE_NAME "baboon.png"
 
 
 OCLTest::OCLTest(void) : encoder(NULL)
@@ -78,12 +78,12 @@ void OCLTest::test()
 
 
 
-   //  imshow("Before:", img_src);
-   //  waitKey();
+     imshow("Before:", img_src);
+   waitKey();
 
 	int* input = new int[imageSize];
     for (int i = 0; i < imageSize; ++i) {
-        input[i] = img_src.data[i];
+        input[i] = img_src.data[i]-128;
     }
 
 	//simulate RGB image
@@ -105,7 +105,7 @@ void OCLTest::test()
 	int* results = getTestResults();
 	if (results) {
 		for (int i = 0; i < imageSize; ++i)
-			img_dst.data[i] =  results[i];
+			img_dst.data[i] =  results[i]+128;
 
 	}
 
