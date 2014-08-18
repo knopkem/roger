@@ -3,12 +3,12 @@
 
 
 // number of banks in local memory
-#define LDS_BANKS 32
+// LDS_BANKS
 
 //////////////////////////
 // dimensions of window
-#define WIN_SIZE_X		128   //assume this equals number of work items in work group
-#define WIN_SIZE_Y		8
+// WIN_SIZE_X	assume this equals number of work items in work group
+// WIN_SIZE_Y
 ///////////////////////////
 
 
@@ -25,21 +25,18 @@ inline int parityIdx() {
 
 
 
-//////////////////////////////////////////////////////////////////////////////////////////////
-// Transform Buffer (in local memory of GPU) where block of input image is stored.
+
+// scratch buffer (in local memory of GPU) where block of input image is stored.
 
 /// Odd and even columns are separated. (Generates less bank conflicts when using lifting scheme.)
 /// All even columns are stored first, then all odd columns.
-/// All operations expect BUF_SIZE_X threads.
+/// All operations expect WIN_SIZE_X threads.
 
 /// BOUNDARY_X		number of extra pixels at the left and right side
-///					boundary is expected to be smaller than half BUF_SIZE_X
+///					boundary is expected to be smaller than half WIN_SIZE_X
 ///					Must be divisible by 2, because half of the boundary lies on the left of the image,
 ///                 half lies on the right
  
-
-// horizontal boundary
-#define BOUNDARY_X		2
 
 // two vertical neighbours: pointer diff:
 #define VERTICAL_STRIDE 66			// BOUNDARY_X + (WIN_SIZE_X / 2)
