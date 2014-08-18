@@ -54,18 +54,22 @@ inline int parityIdx() {
 #define TOTAL_BUFFER_SIZE  1088     // 2 * BUFFER_SIZE + PADDING;
 ///////////////////////////////////////////////////////////////////////
 
+typedef struct _int4Pixel {
+    int4 value;
+} int4Pixel;
+
 CONSTANT int4 twoVec = (int4)(2,2,2,2);
 
 CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_MIRRORED_REPEAT  | CLK_FILTER_NEAREST;
 
-void readPixel(int4* const pix, LOCAL int*  restrict  src) {
-	pix->x = *src ;
+void readPixel(int4Pixel* const pix, LOCAL int*  restrict  src) {
+	pix->value.x = *src ;
 	src += TOTAL_BUFFER_SIZE;
-	pix->y = *src;
+	pix->value.y = *src;
 	src += TOTAL_BUFFER_SIZE;
-	pix->z = *src;
+	pix->value.z = *src;
 	src += TOTAL_BUFFER_SIZE;
-	pix->w = *src;
+	pix->value.w = *src;
 }
 
 void writePixel(int4 pix, LOCAL int*  restrict  dest) {
@@ -169,9 +173,9 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	        if (posOut.x >= width || posOut.y >= height/2)
 				break;
 
-			int4 pix;
+			int4Pixel pix;
 			readPixel(&pix, currentScratch);
-			write_imagei(odata, posOut,pix);
+			write_imagei(odata, posOut,pix.value);
 
 			currentScratch += 2*WIN_SIZE_X;
 			posOut.y++;
@@ -184,9 +188,9 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			 if (posOut.x >= width || posOut.y >= height)
 				break;
 
-			int4 pix;
+			int4Pixel pix;
 			readPixel(&pix, currentScratch);
-			write_imagei(odata, posOut,pix);
+			write_imagei(odata, posOut,pix.value);
 
 			currentScratch += 2*WIN_SIZE_X;
 			posOut.y++;
