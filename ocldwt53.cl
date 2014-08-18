@@ -124,6 +124,8 @@ void fetchNextVertical(__read_only image2d_t idata, float2 posIn, float yDelta, 
 	writePixel(buff[buffStart], dest);
 }
 
+// assumptions: width and height are both even
+// (we will probably have to relax these assumptions in the future)
 
 //1. initialize column (and optionally boundary column)
 //2. read column(s) into scratch
@@ -132,7 +134,7 @@ void fetchNextVertical(__read_only image2d_t idata, float2 posIn, float yDelta, 
 //5. write into destination
 void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,   
                        const unsigned int  width, const unsigned int  height, const unsigned int steps) {
-	LOCAL int scratch[TOTAL_BUFFER_SIZE*4];
+	LOCAL int scratch[TOTAL_BUFFER_SIZE << 2];
 	float yDelta = 1.0/height;
 	int firstY = getGlobalId(1) * (steps * WIN_SIZE_Y);
 	int4 cache[4];
@@ -149,7 +151,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	   LOCAL int* currentScratch = scratch + getLocalId(0);
 
 	   //read pixels two at a time, and store in local buffer
-	   for (int j = 0; j < WIN_SIZE_Y/2; ++j) {
+	   for (int j = 0; j < WIN_SIZE_Y>>1; ++j) {
 	   
 	   		// jump two pixels
 	   		posIn.y += 2*yDelta;
@@ -159,7 +161,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	        //fetch
 			fetchNextVertical(idata,posIn , yDelta, cache, cachePosition, currentScratch);
 			//advance scratch pointer
-			currentScratch += 2*WIN_SIZE_X;
+			currentScratch += WIN_SIZE_X << 1;
 
 		}
 	
@@ -170,14 +172,14 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 		currentScratch = scratch +  getLocalId(0);
 		for (int j = 0; j < WIN_SIZE_Y; j+=2) {
 	
-	        if (posOut.x >= width || posOut.y >= height/2)
+	        if (posOut.x >= width || posOut.y >= height >> 1)
 				break;
 
 			int4Pixel pix;
 			readPixel(&pix, currentScratch);
 			write_imagei(odata, posOut,pix.value);
 
-			currentScratch += 2*WIN_SIZE_X;
+			currentScratch += WIN_SIZE_X << 1;
 			posOut.y++;
 		}
 		//write odd points to destination
@@ -192,7 +194,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			readPixel(&pix, currentScratch);
 			write_imagei(odata, posOut,pix.value);
 
-			currentScratch += 2*WIN_SIZE_X;
+			currentScratch += WIN_SIZE_X << 1;
 			posOut.y++;
 		}
 
