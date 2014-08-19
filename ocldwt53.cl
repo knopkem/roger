@@ -116,7 +116,6 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	LOCAL int scratch[TOTAL_BUFFER_SIZE << 2];
 	float yDelta = 1.0/height;
 	int firstY = getGlobalId(1) * (steps * WIN_SIZE_Y);
-	int4 cache[4];
 
 	// move to left boundary position and initialize
 	const float2 posIn = {getGlobalId(0)/(float)width, (firstY - 2)*yDelta};	
@@ -129,14 +128,13 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	int4 minusTwo = read_imagei(idata, sampler, posIn);
 	// read -1 point
 	posIn.y += yDelta;
-	cache[0] = read_imagei(idata, sampler, posIn);
+	int4 minusOne = read_imagei(idata, sampler, posIn);
 	// read 0 point
 	posIn.y += yDelta;
-	cache[1] = read_imagei(idata, sampler, posIn);
+	int4 current = read_imagei(idata, sampler, posIn);
 
 	// transform -1 point (no need to write to local memory)
-	cache[0] -= (minusTwo + cache[1]) >> 1;   
-	int cachePosition = 0;
+	minusOne -= (minusTwo + current) >> 1;   
 	////////////////////////////////////////////////////////////////////////////////
 
 	for (int i = 0; i < steps; ++i) {
@@ -150,38 +148,35 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	   		posIn.y += yDelta;
 			if (posIn.y >= 1)
 			   break;
-            // advance cache position
-			cachePosition = (cachePosition +2) &3;
 
 			///////////////////////////////////////////////////////////////////////////////////////////
-			// fetch next two pixels, store in circular buffer, and write last (even) and current (odd)
-			// read current (odd) point
-			int4 previousVal = cache[(cachePosition-1)&3];
-			int4 currentVal = read_imagei(idata, sampler, posIn);
+			// fetch next two pixels, and write last (even) and current (odd)
+			// read current plus one (odd) point
+			int4 currentPlusOne = read_imagei(idata, sampler, posIn);
 	
 			// read next (even) point
 			posIn.y += yDelta;
-			int4 nextVal = read_imagei(idata, sampler, posIn);
+			int4 currentPlusTwo = read_imagei(idata, sampler, posIn);
 	
 			// transform current (odd) point
-			currentVal -= (previousVal + nextVal) >> 1;
+			currentPlusOne -= (current + currentPlusTwo) >> 1;
 	
 			// transform previous (even) point
-			previousVal += (cache[(cachePosition-2)&3] + currentVal + twoVec) >> 2; 
+			current += (minusOne + currentPlusOne + twoVec) >> 2; 
 	
 			//write even
-			writePixel(previousVal, currentScratch);
+			writePixel(current, currentScratch);
 
 			//write odd
 			currentScratch += WIN_SIZE_X;
-			writePixel(currentVal, currentScratch);
-
-			cache[(cachePosition-1)&3] = previousVal;
-			cache[cachePosition] = currentVal;
-			cache[(cachePosition+1)&3] = nextVal;
+			writePixel(currentPlusOne, currentScratch);
 
 			//advance scratch pointer
 			currentScratch += WIN_SIZE_X;
+
+			minusOne = currentPlusOne;
+			current = currentPlusTwo;
+
 			////////////////////////////////////////////////////////////////////////////////////////////
 
 		}

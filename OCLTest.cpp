@@ -78,8 +78,8 @@ void OCLTest::test()
 
 
 
-     imshow("Before:", img_src);
-   waitKey();
+  //   imshow("Before:", img_src);
+ //  waitKey();
 
 	int* input = new int[imageSize];
     for (int i = 0; i < imageSize; ++i) {
