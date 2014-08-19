@@ -63,6 +63,8 @@ Odd Columns
 
 // size of buffer for both even and odd columns
 #define TOTAL_BUFFER_SIZE  1088     // 2 * BUFFER_SIZE + PADDING;
+#define TOTAL_BUFFER_SIZE_X2  2176   
+#define TOTAL_BUFFER_SIZE_X3  3264   
 ///////////////////////////////////////////////////////////////////////
 
 
@@ -71,7 +73,7 @@ CONSTANT int4 twoVec = (int4)(2,2,2,2);
 CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_MIRRORED_REPEAT  | CLK_FILTER_NEAREST;
 
 int4 readPixel( LOCAL int*  restrict  src) {
-	return (int4)(*src, *(src+TOTAL_BUFFER_SIZE),  *(src+2*TOTAL_BUFFER_SIZE),  *(src+3*TOTAL_BUFFER_SIZE)) ;
+	return (int4)(*src, *(src+TOTAL_BUFFER_SIZE),  *(src+TOTAL_BUFFER_SIZE_X2),  *(src+TOTAL_BUFFER_SIZE_X3)) ;
 }
 
 void writePixel(int4 pix, LOCAL int*  restrict  dest) {
@@ -84,24 +86,6 @@ void writePixel(int4 pix, LOCAL int*  restrict  dest) {
 	*dest = pix.w;
 }
 
-
-//fetch first pixel (and 2 top boundary pixels)
-// -2  -1 0 1 2 
-void initVertical(__read_only image2d_t idata, float2 posIn, float yDelta, int4*  restrict const buff) {
-	///////////////////////////////////////////////
-	// read -2 point
-	int4 minusTwo = read_imagei(idata, sampler, posIn);
-	// read -1 point
-	posIn.y += yDelta;
-	buff[0] = read_imagei(idata, sampler, posIn);
-	// read 0 point
-	posIn.y += yDelta;
-	buff[1] = read_imagei(idata, sampler, posIn);
-	///////////////////////////////////////////////
-
-	// transform -1 point (no need to write to local memory)
-	buff[0] -= (minusTwo + buff[1]) >> 1;  
-}
 
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
