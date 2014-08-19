@@ -118,23 +118,20 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	int firstY = getGlobalId(1) * (steps * WIN_SIZE_Y);
 
 	// move to left boundary position and initialize
-	const float2 posIn = {getGlobalId(0)/(float)width, (firstY - 2)*yDelta};	
+	const float2 posIn = {getGlobalId(0)/(float)width, (firstY - 1)*yDelta};	
 		
     /////////////////////////////////////////////////////////////////////////////////
 	//fetch first pixel (and 2 top boundary pixels)
 	// -2  -1 0 1 2   
 	  
-	// read -2 point
-	int4 minusTwo = read_imagei(idata, sampler, posIn);
 	// read -1 point
-	posIn.y += yDelta;
 	int4 minusOne = read_imagei(idata, sampler, posIn);
 	// read 0 point
 	posIn.y += yDelta;
 	int4 current = read_imagei(idata, sampler, posIn);
 
 	// transform -1 point (no need to write to local memory)
-	minusOne -= (minusTwo + current) >> 1;   
+	minusOne -= (read_imagei(idata, sampler, (float2)(posIn.x, (firstY - 2)*yDelta)) + current) >> 1;   
 	////////////////////////////////////////////////////////////////////////////////
 
 	for (int i = 0; i < steps; ++i) {
