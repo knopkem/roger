@@ -67,9 +67,6 @@ Odd Columns
 #define TOTAL_BUFFER_SIZE_X3  3264   
 ///////////////////////////////////////////////////////////////////////
 
-
-CONSTANT int4 twoVec = (int4)(2,2,2,2);
-
 CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_MIRRORED_REPEAT  | CLK_FILTER_NEAREST;
 
 int4 readPixel( LOCAL int*  restrict  src) {
@@ -89,33 +86,30 @@ void writePixel(int4 pix, LOCAL int*  restrict  dest) {
 
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
-
-//1. initialize column (and optionaly boundary column)
-//2. read column(s) into scratch
-//3. vertically transform column(s)
-//4. horizontally transform all rows corresponding to this column(s)
-//5. write into destination
 void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,   
                        const unsigned int  width, const unsigned int  height, const unsigned int steps) {
+
+	if (getGlobalId(0) >= width)
+	    return;
+
+    const unsigned int halfHeight = height >> 1;
 	LOCAL int scratch[TOTAL_BUFFER_SIZE << 2];
 	float yDelta = 1.0/height;
 	int firstY = getGlobalId(1) * (steps * WIN_SIZE_Y);
 
-	// move to left boundary position and initialize
-	const float2 posIn = {getGlobalId(0)/(float)width, (firstY - 1)*yDelta};	
-		
+	
     /////////////////////////////////////////////////////////////////////////////////
 	//fetch first pixel (and 2 top boundary pixels)
-	// -2  -1 0 1 2   
-	  
 	// read -1 point
+	const float2 posIn = (float2)(getGlobalId(0), firstY - 1) /  (float2)(width, height);	
 	int4 minusOne = read_imagei(idata, sampler, posIn);
+
 	// read 0 point
 	posIn.y += yDelta;
 	int4 current = read_imagei(idata, sampler, posIn);
 
 	// transform -1 point (no need to write to local memory)
-	minusOne -= (read_imagei(idata, sampler, (float2)(posIn.x, (firstY - 2)*yDelta)) + current) >> 1;   
+	minusOne -= ( read_imagei(idata, sampler, (float2)(posIn.x, (firstY - 2)*yDelta)) + current) >> 1;   
 	////////////////////////////////////////////////////////////////////////////////
 
 	for (int i = 0; i < steps; ++i) {
@@ -143,7 +137,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			currentPlusOne -= (current + currentPlusTwo) >> 1;
 	
 			// transform previous (even) point
-			current += (minusOne + currentPlusOne + twoVec) >> 2; 
+			current += (minusOne + currentPlusOne + (int4)(2,2,2,2)) >> 2; 
 	
 			//write even
 			writePixel(current, currentScratch);
@@ -162,38 +156,30 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 		}
 	
-	    localMemoryFence();
-
-		// write even points to destination
-		const int2 posOut = {getGlobalId(0), firstY>>1};
+		// write points to destination
+		int2 posOut = {getGlobalId(0), firstY>>1};
 		currentScratch = scratch +  getLocalId(0) + BOUNDARY_X;
 		for (int j = 0; j < WIN_SIZE_Y; j+=2) {
 	
-	        if (posOut.x >= width || posOut.y >= (height >> 1))
+	        // even
+	        if (posOut.y >= halfHeight)
 				break;
 
 			write_imagei(odata, posOut,readPixel(currentScratch));
 
-			currentScratch += WIN_SIZE_X << 1;
-			posOut.y++;
-		}
-		//write odd points to destination
-		posOut.y =  ((height + firstY)>>1) + 1;
-		currentScratch = scratch +  getLocalId(0) + BOUNDARY_X + WIN_SIZE_X;
-		for (int j = 0; j < WIN_SIZE_Y; j+=2) {
-	
-			 if (posOut.x >= width || posOut.y >= height)
+			currentScratch += WIN_SIZE_X ;
+			posOut.y+= halfHeight + 1;
+
+			// odd
+			if (posOut.y >= height)
 				break;
 
 			write_imagei(odata, posOut,readPixel(currentScratch));
 
-			currentScratch += WIN_SIZE_X << 1;
-			posOut.y++;
+			currentScratch += WIN_SIZE_X;
+			posOut.y -= halfHeight;
 		}
-
 		firstY += WIN_SIZE_Y;
-		localMemoryFence();
 	}
-	
 }
 
