@@ -28,7 +28,7 @@ template<typename T> OCLEncoder<T>::OCLEncoder(ocl_args_d_t* ocl, bool isLossy) 
 	lossy(isLossy),
 	memoryManager(new OCLMemoryManager<T>(ocl)),
 	forward53(new OCLDWT<T>(KernelInitInfoBase(_ocl->commandQueue,
-	                           "-I . -D WIN_SIZE_X=128 -D WIN_SIZE_Y=8 -D LDS_BANKS=32  -D BOUNDARY_X=2"), memoryManager))
+	                           "-I . -D WIN_SIZE_X=128 -D WIN_SIZE_Y=8 -D LDS_BANKS=32"), memoryManager))
 {
 
 }
