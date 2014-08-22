@@ -110,12 +110,12 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
     //check if this column needs to handle a boundary column
 	int boundaryShift = 0;
-	if (getGlobalId(0) == 1)
-		boundaryShift =  halfWinSizeX + 2;
-	else if (getGlobalId(0) == 2)
-		boundaryShift = -3;
-	else if (getGlobalId(0) == width - 2)
-	    boundaryShift =  halfWinSizeX + 1;
+	if (getGlobalId(0) == 1)				// left odd boundary column
+		boundaryShift =  -1;
+	else if (getGlobalId(0) == 2)           // left even boundary column
+		boundaryShift = -2;
+	else if (getGlobalId(0) == width - 2)   // right even boundary column
+	    boundaryShift =  1;
 
     const unsigned int halfHeight = height >> 1;
 	LOCAL int scratch[TOTAL_BUFFER_SIZE << 2];
