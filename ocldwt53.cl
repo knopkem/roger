@@ -29,9 +29,12 @@ Odd Columns
 
  **/
 
+#define VERTICAL_STRIDE 64
+#define STRIDE_HIGH_TO_LOW  -448   // VERTICAL_STRIDE - BUFFER_SIZE
 
 // two vertical neighbours: pointer diff:
-#define TOTAL_BUFFER_SIZE     1024          // WIN_SIZE_X * WIN_SIZE_Y
+#define BUFFER_SIZE            512	// VERTICAL_STRIDE * WIN_SIZE_Y
+#define TOTAL_BUFFER_SIZE     1024  //2 * BUFFER_SIZE
 #define TOTAL_BUFFER_SIZE_X2  2048   
 #define TOTAL_BUFFER_SIZE_X3  3072   
 
@@ -68,23 +71,22 @@ void writeColumnToOutput(LOCAL int* restrict currentScratch, __write_only image2
 
 		write_imagei(odata, posOut,readPixel(currentScratch));
 
-		currentScratch += WIN_SIZE_X ;
-		posOut.y+= halfHeight + 1;
-
 		// odd
+		currentScratch += BUFFER_SIZE ;
+		posOut.y+= halfHeight + 1;
 		if (posOut.y >= height)
 			break;
 
 		write_imagei(odata, posOut,readPixel(currentScratch));
 
-		currentScratch += WIN_SIZE_X;
+		currentScratch += STRIDE_HIGH_TO_LOW;
 		posOut.y -= halfHeight;
 	}
 }
 
 // offset when transforming columns
 inline int getScratchColumnOffset(){
-   return (getLocalId(0) >> 1) + (getLocalId(0)&1) * (WIN_SIZE_X>>1);
+   return getLocalId(0) >> 1;
 }
 
 // assumptions: width and height are both even
@@ -154,11 +156,11 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			writePixel(current, currentScratch);
 
 			//write odd
-			currentScratch += WIN_SIZE_X;
+			currentScratch += BUFFER_SIZE;
 			writePixel(currentPlusOne, currentScratch);
 
 			//advance scratch pointer
-			currentScratch += WIN_SIZE_X;
+			currentScratch += STRIDE_HIGH_TO_LOW;
 
 			//update registers
 			minusOne = currentPlusOne;
