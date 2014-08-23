@@ -29,6 +29,8 @@ Odd Columns
 
  **/
 
+ #define BOUNDARY_X_LEFT 1
+
 #define VERTICAL_STRIDE_EVEN 66  // WIN_SIZE_X/2 + 2 boundary columns
 #define VERTICAL_STRIDE_ODD 65   // WIN_SIZE_X/2 + 1 boundary column
 
@@ -36,14 +38,20 @@ Odd Columns
 #define BUFFER_SIZE_EVEN            528	// VERTICAL_STRIDE_EVEN * WIN_SIZE_Y
 #define BUFFER_SIZE_ODD             520	// VERTICAL_STRIDE_ODD * WIN_SIZE_Y
 
-#define PADDING                     16    // LDS_BANKS - (BUFFER_SIZE_EVEN % LDS_BANKS)
+#define EVEN_ODD_PADDING                     16    // LDS_BANKS - (BUFFER_SIZE_EVEN % LDS_BANKS)
 
-#define TOTAL_BUFFER_SIZE     1064  // BUFFER_SIZE_EVEN + PADDING BUFFER_SIZE_ODD
-#define TOTAL_BUFFER_SIZE_X2  2128   
-#define TOTAL_BUFFER_SIZE_X3  3192   
+#define CHANNEL_BUFFER_SIZE_UNPADDED    1064    // BUFFER_SIZE_EVEN + EVEN_ODD_PADDING +  BUFFER_SIZE_ODD
+#define CHANNEL_BUFFER_PADDING  24              // LDS_BANKS - (CHANNEL_BUFFER_SIZE_UNPADDED % LDS_BANKS) 
+#define CHANNEL_BUFFER_SIZE     1088            // BUFFER_SIZE_EVEN + EVEN_ODD_PADDING +  BUFFER_SIZE_ODD
 
-#define STRIDE_HIGH_TO_LOW  -478   // VERTICAL_STRIDE_EVEN - (BUFFER_SIZE_SIZE_EVEN + PADDING)
-#define STRIDE_LOW_TO_HIGH   544      // BUFFER_SIZE_EVEN + PADDING
+#define CHANNEL_BUFFER_SIZE_X2  2176   
+#define CHANNEL_BUFFER_SIZE_X3  3264   
+
+#define PIXEL_BUFFER_SIZE   4328
+
+#define VERTICAL_STRIDE_LOW_TO_HIGH   544   // BUFFER_SIZE_EVEN + EVEN_ODD_PADDING
+#define VERTICAL_STRIDE_HIGH_TO_LOW  -478   // VERTICAL_STRIDE_EVEN - STRIDE_HIGH_TO_LOW
+
 
 
 
@@ -53,17 +61,17 @@ CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_MIRRORED_R
 
 // read pixel from local buffer
 int4 readPixel( LOCAL int*  restrict  src) {
-	return (int4)(*src, *(src+TOTAL_BUFFER_SIZE),  *(src+TOTAL_BUFFER_SIZE_X2),  *(src+TOTAL_BUFFER_SIZE_X3)) ;
+	return (int4)(*src, *(src+CHANNEL_BUFFER_SIZE),  *(src+CHANNEL_BUFFER_SIZE_X2),  *(src+CHANNEL_BUFFER_SIZE_X3)) ;
 }
 
 //write pixel to column
 inline void writePixel(int4 pix, LOCAL int*  restrict  dest) {
 	*dest = pix.x;
-	dest += TOTAL_BUFFER_SIZE;
+	dest += CHANNEL_BUFFER_SIZE;
 	*dest = pix.y;
-	dest += TOTAL_BUFFER_SIZE;
+	dest += CHANNEL_BUFFER_SIZE;
 	*dest = pix.z;
-	dest += TOTAL_BUFFER_SIZE;
+	dest += CHANNEL_BUFFER_SIZE;
 	*dest = pix.w;
 }
 
@@ -80,21 +88,21 @@ void writeColumnToOutput(LOCAL int* restrict currentScratch, __write_only image2
 		write_imagei(odata, posOut,readPixel(currentScratch));
 
 		// odd
-		currentScratch += STRIDE_LOW_TO_HIGH ;
+		currentScratch += VERTICAL_STRIDE_LOW_TO_HIGH ;
 		posOut.y+= halfHeight + 1;
 		if (posOut.y >= height)
 			break;
 
 		write_imagei(odata, posOut,readPixel(currentScratch));
 
-		currentScratch += STRIDE_HIGH_TO_LOW;
+		currentScratch += VERTICAL_STRIDE_HIGH_TO_LOW;
 		posOut.y -= halfHeight;
 	}
 }
 
 // offset when transforming columns
 inline int getScratchColumnOffset(){
-   return 1 + (getLocalId(0) >> 1);
+   return BOUNDARY_X_LEFT + (getLocalId(0) >> 1);
 }
 
 // assumptions: width and height are both even
@@ -107,16 +115,8 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 	const int halfWinSizeX = WIN_SIZE_X >> 1;
 
-	int boundaryShift = 0;
-	if (getGlobalId(0) == 1)				// left odd boundary column
-		boundaryShift =  -1;
-	else if (getGlobalId(0) == 2)           // left even boundary column
-		boundaryShift = -2;
-	else if (getGlobalId(0) == width - 2)   // right even boundary column
-	    boundaryShift =  1;
-
     const unsigned int halfHeight = height >> 1;
-	LOCAL int scratch[TOTAL_BUFFER_SIZE << 2];
+	LOCAL int scratch[PIXEL_BUFFER_SIZE];
 	float yDelta = 1.0/height;
 	int firstY = getGlobalId(1) * (steps * WIN_SIZE_Y);
 
@@ -164,11 +164,11 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			writePixel(current, currentScratch);
 
 			//write odd
-			currentScratch += STRIDE_LOW_TO_HIGH;
+			currentScratch += VERTICAL_STRIDE_LOW_TO_HIGH;
 			writePixel(currentPlusOne, currentScratch);
 
 			//advance scratch pointer
-			currentScratch += STRIDE_HIGH_TO_LOW;
+			currentScratch += VERTICAL_STRIDE_HIGH_TO_LOW;
 
 			//update registers
 			minusOne = currentPlusOne;
@@ -215,8 +215,8 @@ inline int parityIdx() {
 #define ODD_OFFSET 560              // BUFFER_SIZE + PADDING
 
 // size of buffer for both even and odd columns
-#define TOTAL_BUFFER_SIZE  1088     // 2 * BUFFER_SIZE + PADDING;
-#define TOTAL_BUFFER_SIZE_X2  2176   
-#define TOTAL_BUFFER_SIZE_X3  3264   
+#define CHANNEL_BUFFER_SIZE  1088     // 2 * BUFFER_SIZE + PADDING;
+#define CHANNEL_BUFFER_SIZE_X2  2176   
+#define CHANNEL_BUFFER_SIZE_X3  3264   
 */
 ////////////////////////////////////////////
