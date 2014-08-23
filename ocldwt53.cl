@@ -29,14 +29,20 @@ Odd Columns
 
  **/
 
-#define VERTICAL_STRIDE 64
-#define STRIDE_HIGH_TO_LOW  -448   // VERTICAL_STRIDE - BUFFER_SIZE
+#define VERTICAL_STRIDE_EVEN 66  // WIN_SIZE_X/2 + 2 boundary columns
+#define VERTICAL_STRIDE_ODD 65   // WIN_SIZE_X/2 + 1 boundary column
 
 // two vertical neighbours: pointer diff:
-#define BUFFER_SIZE            512	// VERTICAL_STRIDE * WIN_SIZE_Y
-#define TOTAL_BUFFER_SIZE     1024  //2 * BUFFER_SIZE
-#define TOTAL_BUFFER_SIZE_X2  2048   
-#define TOTAL_BUFFER_SIZE_X3  3072   
+#define BUFFER_SIZE_EVEN            528	// VERTICAL_STRIDE_EVEN * WIN_SIZE_Y
+#define BUFFER_SIZE_ODD             520	// VERTICAL_STRIDE_ODD * WIN_SIZE_Y
+
+#define TOTAL_BUFFER_SIZE     1048  // BUFFER_SIZE_EVEN + BUFFER_SIZE_ODD
+#define TOTAL_BUFFER_SIZE_X2  2096   
+#define TOTAL_BUFFER_SIZE_X3  3144   
+
+#define STRIDE_HIGH_TO_LOW  -462   // VERTICAL_STRIDE_EVEN - BUFFER_SIZE_SIZE_EVEN
+
+
 
 
 ///////////////////////////////////////////////////////////////////////
@@ -72,7 +78,7 @@ void writeColumnToOutput(LOCAL int* restrict currentScratch, __write_only image2
 		write_imagei(odata, posOut,readPixel(currentScratch));
 
 		// odd
-		currentScratch += BUFFER_SIZE ;
+		currentScratch += BUFFER_SIZE_EVEN ;
 		posOut.y+= halfHeight + 1;
 		if (posOut.y >= height)
 			break;
@@ -86,7 +92,7 @@ void writeColumnToOutput(LOCAL int* restrict currentScratch, __write_only image2
 
 // offset when transforming columns
 inline int getScratchColumnOffset(){
-   return getLocalId(0) >> 1;
+   return 1 + (getLocalId(0) >> 1);
 }
 
 // assumptions: width and height are both even
@@ -156,7 +162,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			writePixel(current, currentScratch);
 
 			//write odd
-			currentScratch += BUFFER_SIZE;
+			currentScratch += BUFFER_SIZE_EVEN;
 			writePixel(currentPlusOne, currentScratch);
 
 			//advance scratch pointer
