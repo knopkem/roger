@@ -36,12 +36,14 @@ Odd Columns
 #define BUFFER_SIZE_EVEN            528	// VERTICAL_STRIDE_EVEN * WIN_SIZE_Y
 #define BUFFER_SIZE_ODD             520	// VERTICAL_STRIDE_ODD * WIN_SIZE_Y
 
-#define TOTAL_BUFFER_SIZE     1048  // BUFFER_SIZE_EVEN + BUFFER_SIZE_ODD
-#define TOTAL_BUFFER_SIZE_X2  2096   
-#define TOTAL_BUFFER_SIZE_X3  3144   
+#define PADDING                     16    // LDS_BANKS - (BUFFER_SIZE_EVEN % LDS_BANKS)
 
-#define STRIDE_HIGH_TO_LOW  -462   // VERTICAL_STRIDE_EVEN - BUFFER_SIZE_SIZE_EVEN
+#define TOTAL_BUFFER_SIZE     1064  // BUFFER_SIZE_EVEN + PADDING BUFFER_SIZE_ODD
+#define TOTAL_BUFFER_SIZE_X2  2128   
+#define TOTAL_BUFFER_SIZE_X3  3192   
 
+#define STRIDE_HIGH_TO_LOW  -478   // VERTICAL_STRIDE_EVEN - (BUFFER_SIZE_SIZE_EVEN + PADDING)
+#define STRIDE_LOW_TO_HIGH   544      // BUFFER_SIZE_EVEN + PADDING
 
 
 
@@ -78,7 +80,7 @@ void writeColumnToOutput(LOCAL int* restrict currentScratch, __write_only image2
 		write_imagei(odata, posOut,readPixel(currentScratch));
 
 		// odd
-		currentScratch += BUFFER_SIZE_EVEN ;
+		currentScratch += STRIDE_LOW_TO_HIGH ;
 		posOut.y+= halfHeight + 1;
 		if (posOut.y >= height)
 			break;
@@ -162,7 +164,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			writePixel(current, currentScratch);
 
 			//write odd
-			currentScratch += BUFFER_SIZE_EVEN;
+			currentScratch += STRIDE_LOW_TO_HIGH;
 			writePixel(currentPlusOne, currentScratch);
 
 			//advance scratch pointer
