@@ -113,6 +113,20 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	if (getGlobalId(0) >= width)
 	    return;
 
+   // column 0 loads column -2 (even) with x offset -2
+   // column 1 loads column -1 (odd)  with x offset -2
+   // column WIN_SIZE_X -2 loads column WIN_SIZE_X (even) with x offset +2
+   int srcBoundaryShiftX = 0;
+   int scratchBoundaryShiftX = 0;
+   if (getLocalId(0) == 0 || getLocalId(0) == 1) {
+       srcBoundaryShiftX = -2;
+	   scratchBoundaryShiftX = -1;
+   }
+   else if (getLocalId(0) == WIN_SIZE_X -2) {
+       srcBoundaryShiftX = -2;
+	   scratchBoundaryShiftX = 1;
+   }
+
 	const int halfWinSizeX = WIN_SIZE_X >> 1;
 
     const unsigned int halfHeight = height >> 1;
@@ -122,9 +136,13 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 	
 	//0. Initialize: fetch first pixel (and 2 top boundary pixels)
+	int4 minusOneBdy;
+	int4 currentBdy;
 
 	// read -1 point
 	const float2 posIn = (float2)(getGlobalId(0), firstY - 1) /  (float2)(width, height);	
+	float2 posInBdy; 
+
 	int4 minusOne = read_imagei(idata, sampler, posIn);
 
 	// read 0 point
@@ -133,6 +151,19 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 	// transform -1 point (no need to write to local memory)
 	minusOne -= ( read_imagei(idata, sampler, (float2)(posIn.x, (firstY - 2)*yDelta)) + current) >> 1;   
+
+	if (srcBoundaryShiftX) {
+	   posInBdy = posIn;	
+	   posInBdy.y -=  2*yDelta;
+	   minusOneBdy = read_imagei(idata, sampler, posInBdy);
+
+	  // read 0 point
+  	  posInBdy.y += yDelta;
+	  currentBdy = read_imagei(idata, sampler, posInBdy);
+
+	  // transform -1 point (no need to write to local memory)
+	  minusOneBdy -= ( read_imagei(idata, sampler, (float2)(posInBdy.x, (firstY - 2)*yDelta)) + current) >> 1;   
+	}
 	
 
 	for (int i = 0; i < steps; ++i) {
@@ -174,6 +205,45 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			minusOne = currentPlusOne;
 			current = currentPlusTwo;
 		}
+		//read boundary column if necessary
+		if (scratchBoundaryShiftX) {
+			currentScratch = scratch + getScratchColumnOffset() + scratchBoundaryShiftX;
+			for (int j = 0; j < WIN_SIZE_Y>>1; ++j) {
+	   
+				///////////////////////////////////////////////////////////////////////////////////////////
+				// fetch next two pixels, then transform and write current (odd) and last (even)  
+			
+				// read current plus one (odd) point
+				posInBdy.y += yDelta;
+				if (posInBdy.y >= 1)
+					break;
+				int4 currentPlusOneBdy = read_imagei(idata, sampler, posInBdy);
+	
+				// read current plus two (even) point
+				posInBdy.y += yDelta;
+				int4 currentPlusTwoBdy = read_imagei(idata, sampler, posInBdy);
+	
+				// transform current plus one (odd) point
+				currentPlusOneBdy -= (currentBdy + currentPlusTwoBdy) >> 1;
+	
+				// transform current (even) point
+				currentBdy += (minusOneBdy + currentPlusOneBdy + (int4)(2,2,2,2)) >> 2; 
+	
+				//write current (even)
+				writePixel(currentBdy, currentScratch);
+
+				//write odd
+				currentScratch += VERTICAL_STRIDE_LOW_TO_HIGH;
+				writePixel(currentPlusOneBdy, currentScratch);
+
+				//advance scratch pointer
+				currentScratch += VERTICAL_STRIDE_HIGH_TO_LOW;
+
+				//update registers
+				minusOneBdy = currentPlusOneBdy;
+				currentBdy = currentPlusTwoBdy;
+			}
+		}
 
 		//4. transform rows
 
@@ -185,38 +255,3 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	}
 }
 
-
-////////////////////////////////////////////
-/*
-/// Returns index ranging from 0 to num work items, such that first half
-/// of the work items get even indices and others get odd indices. Each work item
-/// gets a different index.
-/// Example: (for WIN_SiZE_X == 8)   getLocalId(0):   0  1  2  3  4  5  6  7
-///									 parityIdx:		  0  2  4  6  1  3  5  7
-
-/// @return parity-separated index of work item
-inline int parityIdx() {
-	return (getLocalId(0) << 1) - (WIN_SIZE_X - 1) * (getLocalId(0) / (WIN_SIZE_X >> 1));
-}
-
-// two vertical neighbours: pointer diff:
-#define VERTICAL_STRIDE_EVEN 66			// 2*BOUNDARY_X + (WIN_SIZE_X / 2)		
-
-#define VERTICAL_STRIDE_ODD  65          //  BOUNDARY_X  + (WIN_SIZE_X / 2)
-	
-// size of one of two buffers (odd or even)
-#define BUFFER_SIZE_EVEN     528          // VERTICAL_STRIDE_EVEN * WIN_SIZE_Y
-#define BUFFER_SIZE_ODD     528          // VERTICAL_STRIDE_ODD * WIN_SIZE_Y
-
-/// padding between even and odd buffers: used to reduce bank conflicts
-#define PADDING			32           // LDS_BANKS - ((BUFFER_SIZE + LDS_BANKS / 2) % LDS_BANKS);
-
-// offset of the odd columns buffer from the beginning of data buffer
-#define ODD_OFFSET 560              // BUFFER_SIZE + PADDING
-
-// size of buffer for both even and odd columns
-#define CHANNEL_BUFFER_SIZE  1088     // 2 * BUFFER_SIZE + PADDING;
-#define CHANNEL_BUFFER_SIZE_X2  2176   
-#define CHANNEL_BUFFER_SIZE_X3  3264   
-*/
-////////////////////////////////////////////
