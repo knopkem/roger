@@ -50,10 +50,12 @@ template<typename T> void OCLDWT<T>::encode(bool lossy, std::vector<int*> compon
 	const int steps = divRndUp(h, 15 * windowY);
 	setKernelArgs(targetKernel,steps);
 
-   size_t global_work_size[3] = {divRndUp(w, windowX) * windowX, divRndUp(h, windowY * steps),1};
+	size_t global_offset[3] = {-2,0,0};   //left boundary
+
+   size_t global_work_size[3] = {(divRndUp(w, windowX) + 1)* windowX, divRndUp(h, windowY * steps),1};
    size_t local_work_size[3] = {windowX,1,1};
 
-  targetKernel->enqueue(2,global_work_size, local_work_size);
+  targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
 
 
 }

@@ -73,9 +73,7 @@ inline void writePixel(int4 pix, LOCAL int*  restrict  dest) {
 
 void writeColumnToOutput(LOCAL int* restrict currentScratch, __write_only image2d_t odata, int firstY, int height, int halfHeight){
 	// write points to destination
-	int2 posOut = {getGlobalId(0) - 2 * BOUNDARY_X * getGroupId(0) - BOUNDARY_X, firstY>>1};
-	if (posOut.x < 0)
-	   return;
+	int2 posOut = {getGlobalId(0) - 2 * BOUNDARY_X * getGroupId(0), firstY>>1};
 	for (int j = 0; j < WIN_SIZE_Y; j+=2) {
 	
 	    // even
@@ -107,9 +105,7 @@ inline int getScratchColumnOffset(){
 void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,   
                        const unsigned int  width, const unsigned int  height, const unsigned int steps) {
 
-	int inputX = getGlobalId(0) - 2 * BOUNDARY_X * getGroupId(0) - BOUNDARY_X;
-	if (inputX >= width)
-	   return;
+	int inputX = getGlobalId(0) - 2 * BOUNDARY_X * getGroupId(0);
 
 	const int halfWinSizeX = WIN_SIZE_X >> 1;
     const unsigned int halfHeight = height >> 1;
