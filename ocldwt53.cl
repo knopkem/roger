@@ -1,8 +1,5 @@
 #include "ocl_platform.cl"
 
-// number of banks in local memory
-// LDS_BANKS
-
 //////////////////////////
 // dimensions of window
 // WIN_SIZE_X	assume this equals number of work items in work group
@@ -25,7 +22,7 @@ Even Columns
 Right (even) boundary column
 Left (odd) boundary column
 Odd Columns
-
+Right (odd) boundary column
 
  **/
 
@@ -45,8 +42,12 @@ Odd Columns
 
 #define PIXEL_BUFFER_SIZE   4096
 
-#define VERTICAL_STRIDE_LOW_TO_HIGH   (BUFFER_SIZE)   // BUFFER_SIZE 
+#define HORIZONTAL_ODD_TO_PREVIOUS_EVEN -513
+#define HORIZONTAL_ODD_TO_NEXT_EVEN     -511
 
+
+#define HORIZONTAL_EVEN_TO_PREVIOUS_ODD  511
+#define HORIZONTAL_EVEN_TO_NEXT_ODD      513
 
 
 
@@ -76,9 +77,10 @@ inline void writePixel(int4 pix, LOCAL int*  restrict  dest) {
 }
 
 
-void writeColumnToOutput(LOCAL int* restrict currentScratch, __write_only image2d_t odata, int firstY, int height, int halfHeight){
+void writeColumnToOutput(LOCAL int* restrict currentScratch, __write_only image2d_t odata, int firstY, int inputX, int height, int halfHeight){
+	
 	// write points to destination
-	int2 posOut = {getCorrectedGlobalIdX(), firstY>>1};
+	int2 posOut = {inputX, firstY>>1};
 	for (int j = 0; j < WIN_SIZE_Y; j+=2) {
 	
 	    // even
@@ -100,12 +102,10 @@ void writeColumnToOutput(LOCAL int* restrict currentScratch, __write_only image2
 	}
 }
 
-// offset when transforming columns
-inline int getScratchColumnOffset(){
-   return (getLocalId(0)>> 1) + (getLocalId(0)&1) * VERTICAL_STRIDE_LOW_TO_HIGH;
+// initial scratch offset when transforming vertically
+inline int getScratchOffset(){
+   return (getLocalId(0)>> 1) + (getLocalId(0)&1) * BUFFER_SIZE;
 }
-
-
 
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
@@ -113,6 +113,9 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
                        const unsigned int  width, const unsigned int  height, const unsigned int steps) {
 
 	int inputX = getCorrectedGlobalIdX();
+
+	int outputX = inputX;
+	outputX = (outputX >> 1) + (outputX & 1)*( width >> 1);
 
 	const int halfWinSizeX = WIN_SIZE_X >> 1;
     const unsigned int halfHeight = height >> 1;
@@ -132,12 +135,11 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 	// transform -1 point (no need to write to local memory)
 	minusOne -= ( read_imagei(idata, sampler, (float2)(posIn.x, (firstY - 2)*yDelta)) + current) >> 1;   
-	bool doWrite = (getLocalId(0) >= BOUNDARY_X) && ( getLocalId(0) < WIN_SIZE_X - BOUNDARY_X) && (inputX < width);
 	for (int i = 0; i < steps; ++i) {
 
 		// 1. read from source image, transform columns, and store in local scratch
-		LOCAL int* currentScratch = scratch + getScratchColumnOffset();
-		for (int j = 0; j < WIN_SIZE_Y>>1; ++j) {
+		LOCAL int* currentScratch = scratch + getScratchOffset();
+		for (int j = 0; j < WIN_SIZE_Y; j+=2) {
 	   
 			///////////////////////////////////////////////////////////////////////////////////////////
 			// fetch next two pixels, then transform and write current (odd) and last (even)  
@@ -151,13 +153,14 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			// read current plus two (even) point
 			posIn.y += yDelta;
 			int4 currentPlusTwo = read_imagei(idata, sampler, posIn);
-	
+
 			// transform current plus one (odd) point
 			currentPlusOne -= (current + currentPlusTwo) >> 1;
 	
 			// transform current (even) point
 			current += (minusOne + currentPlusOne + (int4)(2,2,2,2)) >> 2; 
 	
+
 			//write current (even)
 			writePixel(current, currentScratch);
 
@@ -173,11 +176,40 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			current = currentPlusTwo;
 		}
 
-		//4. transform rows
-		if (doWrite) {
+		
+		//4. transform horizontally
+		currentScratch = scratch + getScratchOffset();	
+		localMemoryFence();
+		//odd columns (skip right odd boundary column)
+		if (getLocalId(0)&1 && (getLocalId(0) != WIN_SIZE_X-1) ) {
+			for (int j = 0; j < WIN_SIZE_Y; j++) {
+				int4 currentOdd = readPixel(currentScratch);
+				int4 prevEven = readPixel(currentScratch + HORIZONTAL_ODD_TO_PREVIOUS_EVEN);
+				int4 nextEven = readPixel(currentScratch + HORIZONTAL_ODD_TO_NEXT_EVEN); 
+				currentOdd -= ((prevEven + nextEven) >> 1);
+				writePixel( currentOdd, currentScratch);
+				currentScratch += VERTICAL_STRIDE;
+			}
+		}
+		localMemoryFence();
 
-			//5. write local buffer to destination image
-			writeColumnToOutput(scratch + getScratchColumnOffset(), odata, firstY, height, halfHeight);
+		//even columns (skip left and right even boundary columns)
+		if ( !(getLocalId(0)&1) && (getLocalId(0) != 0) && (getLocalId(0) != WIN_SIZE_X-2)  ) {
+			for (int j = 0; j < WIN_SIZE_Y; j++) {
+				int4 currentEven = readPixel(currentScratch);
+				int4 prevOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_PREVIOUS_ODD);
+				int4 nextOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_NEXT_ODD); 
+				currentEven += (prevOdd + nextOdd + (int4)(2,2,2,2)) >> 2; 
+				writePixel( currentEven, currentScratch);
+				currentScratch += VERTICAL_STRIDE;
+			}
+		}
+		localMemoryFence();
+
+		//5. write local buffer column to destination image
+		// (only write non-boundary columns that are within the image bounds)
+		if ((getLocalId(0) >= BOUNDARY_X) && ( getLocalId(0) < WIN_SIZE_X - BOUNDARY_X) && (inputX < width) && inputX >= 0) {
+			writeColumnToOutput(scratch + getScratchOffset(), odata, firstY, outputX, height, halfHeight);
 
 		}
 		// move to next step 
