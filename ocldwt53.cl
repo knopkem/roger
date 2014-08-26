@@ -54,6 +54,11 @@ Odd Columns
 
 CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_MIRRORED_REPEAT  | CLK_FILTER_NEAREST;
 
+inline int getCorrectedGlobalIdX() {
+      return getGlobalId(0) - 2 * BOUNDARY_X * getGroupId(0);
+}
+
+
 // read pixel from local buffer
 int4 readPixel( LOCAL int*  restrict  src) {
 	return (int4)(*src, *(src+CHANNEL_BUFFER_SIZE),  *(src+CHANNEL_BUFFER_SIZE_X2),  *(src+CHANNEL_BUFFER_SIZE_X3)) ;
@@ -73,7 +78,7 @@ inline void writePixel(int4 pix, LOCAL int*  restrict  dest) {
 
 void writeColumnToOutput(LOCAL int* restrict currentScratch, __write_only image2d_t odata, int firstY, int height, int halfHeight){
 	// write points to destination
-	int2 posOut = {getGlobalId(0) - 2 * BOUNDARY_X * getGroupId(0), firstY>>1};
+	int2 posOut = {getCorrectedGlobalIdX(), firstY>>1};
 	for (int j = 0; j < WIN_SIZE_Y; j+=2) {
 	
 	    // even
@@ -100,12 +105,14 @@ inline int getScratchColumnOffset(){
    return (getLocalId(0)>> 1) + (getLocalId(0)&1) * VERTICAL_STRIDE_LOW_TO_HIGH;
 }
 
+
+
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
 void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,   
                        const unsigned int  width, const unsigned int  height, const unsigned int steps) {
 
-	int inputX = getGlobalId(0) - 2 * BOUNDARY_X * getGroupId(0);
+	int inputX = getCorrectedGlobalIdX();
 
 	const int halfWinSizeX = WIN_SIZE_X >> 1;
     const unsigned int halfHeight = height >> 1;
@@ -125,7 +132,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 	// transform -1 point (no need to write to local memory)
 	minusOne -= ( read_imagei(idata, sampler, (float2)(posIn.x, (firstY - 2)*yDelta)) + current) >> 1;   
-	bool doWrite = (getLocalId(0) >= BOUNDARY_X) && ( getLocalId(0) < WIN_SIZE_X - BOUNDARY_X) ;
+	bool doWrite = (getLocalId(0) >= BOUNDARY_X) && ( getLocalId(0) < WIN_SIZE_X - BOUNDARY_X) && (inputX < width);
 	for (int i = 0; i < steps; ++i) {
 
 		// 1. read from source image, transform columns, and store in local scratch

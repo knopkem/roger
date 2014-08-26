@@ -52,6 +52,7 @@ template<typename T> void OCLDWT<T>::encode(bool lossy, std::vector<int*> compon
 
 	size_t global_offset[3] = {-2,0,0};   //left boundary
 
+	//add one extra windowX to make up for group overlap due to boundary
    size_t global_work_size[3] = {(divRndUp(w, windowX) + 1)* windowX, divRndUp(h, windowY * steps),1};
    size_t local_work_size[3] = {windowX,1,1};
 
