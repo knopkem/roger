@@ -104,8 +104,15 @@ void OCLTest::test()
 
 	int* results = getTestResults();
 	if (results) {
-		for (int i = 0; i < imageSize; ++i)
-			img_dst.data[i] =  results[i]+128;
+		for (int i = 0; i < imageSize; ++i){
+			int temp =  results[i]+128;
+			if (temp < 0)
+				temp = 0;
+			if (temp > 255)
+				temp = 255;
+			img_dst.data[i] = temp;
+
+		}
 
 	}
 
