@@ -76,29 +76,28 @@ inline void writePixel(int4 pix, LOCAL int*  restrict  dest) {
 	*dest = pix.w;
 }
 
-
+// write column to destination
 void writeColumnToOutput(LOCAL int* restrict currentScratch, __write_only image2d_t odata, int firstY, int inputX, int height, int halfHeight){
-	
-	// write points to destination
+
 	int2 posOut = {inputX, firstY>>1};
 	for (int j = 0; j < WIN_SIZE_Y; j+=2) {
 	
-	    // even
+	    // even row
+		
+		//only need to check evens, since even point will be the first out of bound point
 	    if (posOut.y >= halfHeight)
 			break;
 
 		write_imagei(odata, posOut,readPixel(currentScratch));
 
-		// odd
+		// odd row
 		currentScratch += VERTICAL_STRIDE ;
-		posOut.y+= halfHeight + 1;
-		if (posOut.y >= height)
-			break;
+		posOut.y+= halfHeight;
 
 		write_imagei(odata, posOut,readPixel(currentScratch));
 
 		currentScratch += VERTICAL_STRIDE;
-		posOut.y -= halfHeight;
+		posOut.y -= (halfHeight - 1);
 	}
 }
 
@@ -120,13 +119,13 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	const int halfWinSizeX = WIN_SIZE_X >> 1;
     const unsigned int halfHeight = height >> 1;
 	LOCAL int scratch[PIXEL_BUFFER_SIZE];
-	const float yDelta = 1.0/height;
+	const float yDelta = 1.0/(height-1);
 	int firstY = getGlobalId(1) * (steps * WIN_SIZE_Y);
 	
 	//0. Initialize: fetch first pixel (and 2 top boundary pixels)
 
 	// read -1 point
-	float2 posIn = (float2)(inputX, firstY - 1) /  (float2)(width, height);	
+	float2 posIn = (float2)(inputX, firstY - 1) /  (float2)(width-1, height-1);	
 	int4 minusOne = read_imagei(idata, sampler, posIn);
 
 	// read 0 point
@@ -146,7 +145,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			
 			// read current plus one (odd) point
 			posIn.y += yDelta;
-			if (posIn.y >= 1)
+			if (posIn.y > 1 + yDelta)
 				break;
 			int4 currentPlusOne = read_imagei(idata, sampler, posIn);
 	
@@ -179,9 +178,11 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 		
 		//4. transform horizontally
 		currentScratch = scratch + getScratchOffset();	
+
+		
 		localMemoryFence();
 		//odd columns (skip right odd boundary column)
-		if (getLocalId(0)&1 && (getLocalId(0) != WIN_SIZE_X-1) ) {
+		if ( (getLocalId(0)&1) && (getLocalId(0) != WIN_SIZE_X-1) ) {
 			for (int j = 0; j < WIN_SIZE_Y; j++) {
 				int4 currentOdd = readPixel(currentScratch);
 				int4 prevEven = readPixel(currentScratch + HORIZONTAL_ODD_TO_PREVIOUS_EVEN);
@@ -191,8 +192,8 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 				currentScratch += VERTICAL_STRIDE;
 			}
 		}
+		
 		localMemoryFence();
-
 		//even columns (skip left and right even boundary columns)
 		if ( !(getLocalId(0)&1) && (getLocalId(0) != 0) && (getLocalId(0) != WIN_SIZE_X-2)  ) {
 			for (int j = 0; j < WIN_SIZE_Y; j++) {
