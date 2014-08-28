@@ -193,6 +193,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			}
 		}
 		
+		currentScratch = scratch + getScratchOffset();	
 		localMemoryFence();
 		//even columns (skip left and right even boundary columns)
 		if ( !(getLocalId(0)&1) && (getLocalId(0) != 0) && (getLocalId(0) != WIN_SIZE_X-2)  ) {
