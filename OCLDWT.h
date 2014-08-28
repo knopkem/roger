@@ -34,6 +34,7 @@ private:
 	KernelInitInfoBase initInfo;
 	OCLMemoryManager<T>* memoryManager;
 	OCLKernel* forward53;
+	OCLKernel* forward97;
 
 };
 

@@ -28,7 +28,8 @@ inline int divRndUp(const int n, const int d) {
 template<typename T> OCLDWT<T>::OCLDWT(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr) : 
 	                initInfo(initInfo),
 					memoryManager(memMgr),
-					forward53(new OCLKernel( KernelInitInfo(initInfo, "ocldwt53.cl", "run") ))
+					forward53(new OCLKernel( KernelInitInfo(initInfo, "ocldwt53.cl", "run") )),
+					forward97(new OCLKernel( KernelInitInfo(initInfo, "ocldwt97.cl", "run") ))
 				
 											
 {
@@ -39,26 +40,43 @@ template<typename T> OCLDWT<T>::~OCLDWT(void)
 {
 	if (forward53)
 		delete forward53;
+	if (forward97)
+		delete forward97;
 }
 
 template<typename T> void OCLDWT<T>::encode(bool lossy, std::vector<int*> components,	int w,	int h, int windowX, int windowY) {
 
 	if (components.size() == 0)
 		return;
-	OCLKernel* targetKernel = forward53;
-	memoryManager->init(components,w,h,lossy);
-	const int steps = divRndUp(h, 15 * windowY);
-	setKernelArgs(targetKernel,steps);
+	if (lossy) {
+		OCLKernel* targetKernel = forward97;
+		memoryManager->init(components,w,h,lossy);
+		const int steps = divRndUp(h, 15 * windowY);
+		setKernelArgs(targetKernel,steps);
 
-	size_t global_offset[3] = {-2,0,0};   //left boundary
+		size_t global_offset[3] = {-2,0,0};   //left boundary
 
-	//add one extra windowX to make up for group overlap due to boundary
-   size_t global_work_size[3] = {(divRndUp(w, windowX) + 1)* windowX, divRndUp(h, windowY * steps),1};
-   size_t local_work_size[3] = {windowX,1,1};
+		//add one extra windowX to make up for group overlap due to boundary
+	   size_t global_work_size[3] = {(divRndUp(w, windowX) + 1)* windowX, divRndUp(h, windowY * steps),1};
+	   size_t local_work_size[3] = {windowX,1,1};
 
-  targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
+	   targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
 
+	} else {
+		OCLKernel* targetKernel = forward53;
+		memoryManager->init(components,w,h,lossy);
+		const int steps = divRndUp(h, 15 * windowY);
+		setKernelArgs(targetKernel,steps);
 
+		size_t global_offset[3] = {-2,0,0};   //left boundary
+
+		//add one extra windowX to make up for group overlap due to boundary
+	   size_t global_work_size[3] = {(divRndUp(w, windowX) + 1)* windowX, divRndUp(h, windowY * steps),1};
+	   size_t local_work_size[3] = {windowX,1,1};
+
+	  targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
+
+	}
 }
 
 

@@ -130,7 +130,7 @@ void OCLTest::test()
 void OCLTest::testInit() {
 	OCLDeviceManager* deviceManager = new OCLDeviceManager();
 	deviceManager->init();
-	encoder = new OCLEncoder<int>(deviceManager->getInfo(), false);
+	encoder = new OCLEncoder<int>(deviceManager->getInfo(), true);
 
 }
 
