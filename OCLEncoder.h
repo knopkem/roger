@@ -34,6 +34,6 @@ private:
 	ocl_args_d_t* _ocl;
 	bool lossy;
 	OCLMemoryManager<T>* memoryManager;
-	OCLDWT<T>* forward53;
+	OCLDWT<T>* dwt;
 	
 };

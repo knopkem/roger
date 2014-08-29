@@ -44,7 +44,7 @@ template<typename T> OCLDWT<T>::~OCLDWT(void)
 		delete forward97;
 }
 
-template<typename T> void OCLDWT<T>::encode(bool lossy, std::vector<int*> components,	int w,	int h, int windowX, int windowY) {
+template<typename T> void OCLDWT<T>::encode(bool lossy, std::vector<T*> components,	int w,	int h, int windowX, int windowY) {
 
 	if (components.size() == 0)
 		return;

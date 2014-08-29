@@ -13,6 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
+#pragma once
 #include "OCLTest.h"
 
 #include "opencv2/core/core.hpp"
@@ -32,41 +33,34 @@ using namespace cv;
 #define OCL_SAMPLE_IMAGE_NAME "baboon.png"
 
 
-OCLTest::OCLTest(void) : encoder(NULL)
+template<typename T>  OCLTest<T>::OCLTest(void) : encoder(NULL)
 {
 }
 
 
-OCLTest::~OCLTest(void)
+template<typename T> OCLTest<T>::~OCLTest(void)
 {
 }
 
-
-// Read and normalize the input image
-Mat ReadInputImage(const std::string &fileName, int flag, int alignCols, int alignRows)
-{
-    Size dsize;
-    Mat img = imread(fileName, flag);
-
-    if (! img.empty())
-    {
-        // Make sure that the input image size is fit:
-        // number of rows is multiple of 8
-        // number of columns is multiple of 64
-        dsize.height = ((img.rows % alignRows) == 0) ? img.rows : (((img.rows + alignRows - 1) / alignRows) * alignRows);
-        dsize.width = ((img.cols % alignCols) == 0) ? img.cols : (((img.cols + alignCols - 1) / alignCols) * alignCols);
-        resize(img, img, dsize);
-    }
-
-    return img;
-}
-void OCLTest::test()
+template<typename T> void OCLTest<T>::test()
 {
 
 	testInit();
 
     // Read the input image
-    Mat img_src = ReadInputImage(OCL_SAMPLE_IMAGE_NAME, CV_8UC3, 8, 64);
+	Size dsize;
+    Mat img_src = imread(OCL_SAMPLE_IMAGE_NAME, CV_8UC3);
+	 int alignCols=8, alignRows=64;
+
+    if (! img_src.empty())
+    {
+        // Make sure that the input image size is fit:
+        // number of rows is multiple of 8
+        // number of columns is multiple of 64
+        dsize.height = ((img_src.rows % alignRows) == 0) ? img_src.rows : (((img_src.rows + alignRows - 1) / alignRows) * alignRows);
+        dsize.width = ((img_src.cols % alignCols) == 0) ? img_src.cols : (((img_src.cols + alignCols - 1) / alignCols) * alignCols);
+        resize(img_src, img_src, dsize);
+    }
     if (img_src.empty())
     {
         LogError("Cannot read image file: %s\n", OCL_SAMPLE_IMAGE_NAME);
@@ -81,13 +75,13 @@ void OCLTest::test()
   //   imshow("Before:", img_src);
  //  waitKey();
 
-	int* input = new int[imageSize];
+	T* input = new T[imageSize];
     for (int i = 0; i < imageSize; ++i) {
-        input[i] = img_src.data[i]-128;
+        input[i] = (img_src.data[i]/255.0f) - 0.5f;
     }
 
 	//simulate RGB image
-	std::vector<int*> components;
+	std::vector<T*> components;
 	components.push_back(input);
 	//components.push_back(input);
 	//components.push_back(input);
@@ -102,10 +96,10 @@ void OCLTest::test()
 	t = my_clock() - t;
 	fprintf(stdout, "encode time: %d micro seconds \n", (int)((t * 1000000)/numIterations));
 
-	int* results = getTestResults();
+	T* results = getTestResults();
 	if (results) {
 		for (int i = 0; i < imageSize; ++i){
-			int temp =  results[i]+128;
+			int temp =  (results[i] + 0.5f)*255;
 			if (temp < 0)
 				temp = 0;
 			if (temp > 255)
@@ -127,24 +121,24 @@ void OCLTest::test()
 
 }
 
-void OCLTest::testInit() {
+template<typename T> void OCLTest<T>::testInit() {
 	OCLDeviceManager* deviceManager = new OCLDeviceManager();
 	deviceManager->init();
-	encoder = new OCLEncoder<int>(deviceManager->getInfo(), true);
+	encoder = new OCLEncoder<T>(deviceManager->getInfo(), true);
 
 }
 
 
-void OCLTest::testRun(std::vector<int*> components,int w,int h) {
+template<typename T> void OCLTest<T>::testRun(std::vector<T*> components,int w,int h) {
 	encoder->encode(components,w,h);
 }
 
-void OCLTest::testFinish() {
+template<typename T> void OCLTest<T>::testFinish() {
 	encoder->finish();
 }
 
-int* OCLTest::getTestResults(){
+template<typename T> T* OCLTest<T>::getTestResults(){
 	void* ptr;
 	encoder->mapOutput(&ptr);
-	return (int*)ptr;
+	return (T*)ptr;
 }

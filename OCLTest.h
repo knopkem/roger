@@ -18,7 +18,7 @@
 #include "OCLUtil.h"
 #include "OCLEncoder.h"
 
-class OCLTest
+template< typename T > class OCLTest
 {
 public:
 	OCLTest(void);
@@ -27,11 +27,11 @@ public:
 	void test();
 private:
 	void testInit();
-    void testRun(std::vector<int*> components,int w,int h);
+    void testRun(std::vector<T*> components,int w,int h);
 	void testFinish();
-	int* getTestResults();
+	T* getTestResults();
 
-	OCLEncoder<int>* encoder;
+	OCLEncoder<T>* encoder;
 
 };
 

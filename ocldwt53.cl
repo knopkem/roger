@@ -170,10 +170,10 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			int4 currentPlusTwo = read_imagei(idata, sampler, posIn);
 
 			// transform current plus one (odd) point
-			currentPlusOne -= (current + currentPlusTwo) >> 1;
+			currentPlusOne -= (current + currentPlusTwo) >> 1;  // F.4, page 118, ITU-T Rec. T.800 final draft
 	
 			// transform current (even) point
-			current += (minusOne + currentPlusOne + (int4)(2,2,2,2)) >> 2; 
+			current += (minusOne + currentPlusOne + 2) >> 2; // F.3, page 118, ITU-T Rec. T.800 final draft
 	
 
 			//write current (even)
@@ -217,7 +217,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 				int4 currentEven = readPixel(currentScratch);
 				int4 prevOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_PREVIOUS_ODD);
 				int4 nextOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_NEXT_ODD); 
-				currentEven += (prevOdd + nextOdd + (int4)(2,2,2,2)) >> 2; 
+				currentEven += (prevOdd + nextOdd + 2) >> 2; 
 				writePixel( currentEven, currentScratch);
 				currentScratch += VERTICAL_STRIDE;
 			}

@@ -17,6 +17,8 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 
+#include "OCLTest.cpp"
+
 using namespace cv;
 
 #include "OCLUtil.h"
@@ -27,7 +29,7 @@ extern bool quiet;
 
 int main(int argc, char* argv[])
 {
-	OCLTest oclTester;
+	OCLTest<float> oclTester;
 	oclTester.test();
     LogInfo("Done.\n");
 

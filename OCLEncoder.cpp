@@ -27,21 +27,20 @@ template<typename T> OCLEncoder<T>::OCLEncoder(ocl_args_d_t* ocl, bool isLossy) 
 	_ocl(ocl), 
 	lossy(isLossy),
 	memoryManager(new OCLMemoryManager<T>(ocl)),
-	forward53(new OCLDWT<T>(KernelInitInfoBase(_ocl->commandQueue,
-	                           "-I . -D WIN_SIZE_X=128 -D WIN_SIZE_Y=8"), memoryManager))
+	dwt(new OCLDWT<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=128 -D WIN_SIZE_Y=8"), memoryManager))
 {
 
 }
 
 
 template<typename T> OCLEncoder<T>::~OCLEncoder(){
-	if (forward53)
-		delete forward53;
+	if (dwt)
+		delete dwt;
 }
 
 template<typename T> void OCLEncoder<T>::encode(std::vector<T*> components,int w,int h){
-	memoryManager->init(components,w,h,false);
-	forward53->encode(lossy, components, w,h, 128,8);
+	memoryManager->init(components,w,h,lossy);
+	dwt->encode(lossy, components, w,h, 128,8);
 }
 
 template<typename T> void OCLEncoder<T>::finish(void){
