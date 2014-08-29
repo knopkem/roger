@@ -173,7 +173,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			currentPlusOne -= (current + currentPlusTwo) /2;  // F.4, page 118, ITU-T Rec. T.800 final draft
 	
 			// transform current (even) point
-			current += (minusOne + currentPlusOne + 2) /4; // F.3, page 118, ITU-T Rec. T.800 final draft
+			current += (minusOne + currentPlusOne + 0.0078125f) /4; // F.3, page 118, ITU-T Rec. T.800 final draft
 	
 
 			//write current (even)
@@ -217,7 +217,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 				float4 currentEven = readPixel(currentScratch);
 				float4 prevOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_PREVIOUS_ODD);
 				float4 nextOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_NEXT_ODD); 
-				currentEven += (prevOdd + nextOdd + 2) /4; 
+				currentEven += (prevOdd + nextOdd + 0.0078125f) /4; 
 				writePixel( currentEven, currentScratch);
 				currentScratch += VERTICAL_STRIDE;
 			}
