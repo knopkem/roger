@@ -112,6 +112,9 @@ double  my_clock(void) {
     QueryPerformanceCounter ( & t ) ;
     return ( t.QuadPart /(double) freq.QuadPart ) ;
 #endif
+#ifdef __linux__
+	return (double)(t.tv_sec + t.tv_usec/1e6); 
+#endif
 }
 
 void* aligned_malloc (size_t size, size_t alignment)
