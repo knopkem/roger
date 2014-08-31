@@ -142,14 +142,14 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 	// read -1 point
 	float2 posIn = (float2)(inputX, firstY - 1) /  (float2)(width-1, height-1);	
-	int4 minusOne = read_imagei(idata, sampler, posIn);
+	int4 previous = read_imagei(idata, sampler, posIn);
 
 	// read 0 point
 	posIn.y += yDelta;
 	int4 current = read_imagei(idata, sampler, posIn);
 
-	// transform -1 point (no need to write to local memory)
-	minusOne -= ( read_imagei(idata, sampler, (float2)(posIn.x, (firstY - 2)*yDelta)) + current) >> 1;   
+	// predict previous (odd)
+	previous -= ( read_imagei(idata, sampler, (float2)(posIn.x, (firstY - 2)*yDelta)) + current) >> 1;   
 	for (int i = 0; i < steps; ++i) {
 
 		// 1. read from source image, transform columns, and store in local scratch
@@ -159,21 +159,21 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			///////////////////////////////////////////////////////////////////////////////////////////
 			// fetch next two pixels, then transform and write current (odd) and last (even)  
 			
-			// read current plus one (odd) point
+			// read next (odd) point
 			posIn.y += yDelta;
 			if (posIn.y > 1 + yDelta)
 				break;
-			int4 currentPlusOne = read_imagei(idata, sampler, posIn);
+			int4 next = read_imagei(idata, sampler, posIn);
 	
-			// read current plus two (even) point
+			// read next plus one (even) point
 			posIn.y += yDelta;
-			int4 currentPlusTwo = read_imagei(idata, sampler, posIn);
+			int4 nextPlusOne = read_imagei(idata, sampler, posIn);
 
-			// transform current plus one (odd) point
-			currentPlusOne -= (current + currentPlusTwo) >> 1;  // F.4, page 118, ITU-T Rec. T.800 final draft
+			// predict next (odd)
+			next -= (current + nextPlusOne) >> 1;  // F.4, page 118, ITU-T Rec. T.800 final draft
 	
-			// transform current (even) point
-			current += (minusOne + currentPlusOne + 2) >> 2; // F.3, page 118, ITU-T Rec. T.800 final draft
+			// update current (even)
+			current += (previous + next + 2) >> 2; // F.3, page 118, ITU-T Rec. T.800 final draft
 	
 
 			//write current (even)
@@ -181,14 +181,14 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 			//write odd
 			currentScratch += VERTICAL_STRIDE;
-			writePixel(currentPlusOne, currentScratch);
+			writePixel(next, currentScratch);
 
 			//advance scratch pointer
 			currentScratch += VERTICAL_STRIDE;
 
 			//update registers
-			minusOne = currentPlusOne;
-			current = currentPlusTwo;
+			previous = next;
+			current = nextPlusOne;
 		}
 
 		

@@ -42,7 +42,7 @@ Right (odd) boundary column
 
  **/
 
-#define BOUNDARY_X 2
+#define BOUNDARY_X 4
 
 #define VERTICAL_STRIDE 64  // WIN_SIZE_X/2 
 
@@ -58,14 +58,65 @@ Right (odd) boundary column
 
 #define PIXEL_BUFFER_SIZE   4096
 
-#define HORIZONTAL_ODD_TO_PREVIOUS_EVEN -512
-#define HORIZONTAL_ODD_TO_NEXT_EVEN     -511
-
-
 #define HORIZONTAL_EVEN_TO_PREVIOUS_ODD  511
 #define HORIZONTAL_EVEN_TO_NEXT_ODD      512
 
+#define HORIZONTAL_ODD_TO_PREVIOUS_EVEN -512
+#define HORIZONTAL_ODD_TO_NEXT_EVEN     -511
 
+CONSTANT float P1 = -1.586134342;   ///< forward 9/7 predict 1
+CONSTANT float U1 = -0.05298011854;  ///< forward 9/7 update 1
+CONSTANT float P2 = 0.8829110762;   ///< forward 9/7 predict 2
+CONSTANT float U2 = 0.4435068522;    ///< forward 9/7 update 2
+CONSTANT float U1P1 = 0.08403358545952490068;
+
+CONSTANT float scale97Mul = 1.23017410491400f;
+CONSTANT float scale97Div = 1.0 / 1.23017410491400f;
+
+/*
+
+Lifting scheme consists of four steps: Predict1 Update1 Predict2 Update2
+followed by scaling.
+
+If the odd predict2 pixels are calculated first, then the even update2 pixels
+can be easily calculated.
+
+Predict Calculation:
+
+For S odd, we have:
+
+
+current_P1 = current + P1*(minusOne + plusOne)
+
+current_P2 = current_P1 + 
+             P2*(minusOne_U1 + plusOne_U1)
+           =   current + P1*(minusOne + plusOne) +
+		         P2*( minusOne + U1*(minusTwo + current) + U1P1*(minusThree + 2*minusOne + plusOne) + 
+				      plusOne + U1*(current + plusTwo) + U1P1*(minusOne + 2*plusOne + plusThree)  )
+
+
+
+Update Calculation
+
+For S even, we have
+
+current_U1 = current + U1*(minusOne_P1 + plusOne_P1)
+           = current + U1*(minusOne + P1*(minusTwo + current) + plusOne + P1*(current + plusTwo))
+		   = current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo)
+
+current_U2 = current_U1 + U2*( minusOne_P2 + plusOne_P2)
+           =  current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo) + 
+		      U2 *  (  minusOne + P1*(minusTwo + current) +
+		         P2*( minusTwo + U1*(minusThree + minusOne) + U1P1*(minusFour + 2*minusTwo + current) + 
+				      current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo)  ) +
+
+			            plusOne + P1*(current + plusTwo) +
+		         P2*( current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo) + 
+				      plusTwo + U1*(plusOne + plusThree) + U1P1*(current + 2*plusTwo + plusFour)  ) )
+
+
+*/
+  
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -104,13 +155,13 @@ void writeColumnToOutput(LOCAL float* restrict currentScratch, __write_only imag
 	    if (posOut.y >= halfHeight)
 			break;
 
-		write_imagef(odata, posOut,readPixel(currentScratch));
+		write_imagef(odata, posOut,scale97Div * readPixel(currentScratch));
 
 		// odd row
 		currentScratch += VERTICAL_STRIDE ;
 		posOut.y+= halfHeight;
 
-		write_imagef(odata, posOut,readPixel(currentScratch));
+		write_imagef(odata, posOut,scale97Mul * readPixel(currentScratch));
 
 		currentScratch += VERTICAL_STRIDE;
 		posOut.y -= (halfHeight - 1);
@@ -140,55 +191,85 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	
 	//0. Initialize: fetch first pixel (and 2 top boundary pixels)
 
+	// read -4 point
+	float2 posIn = (float2)(inputX, firstY - 4) /  (float2)(width-1, height-1);	
+	float4 minusFour = read_imagef(idata, sampler, posIn);
+
+	posIn.y += yDelta;
+	float4 minusThree = read_imagef(idata, sampler, posIn);
+
+	// read -2 point
+	posIn.y += yDelta;
+	float4 minusTwo = read_imagef(idata, sampler, posIn);
+
 	// read -1 point
-	float2 posIn = (float2)(inputX, firstY - 1) /  (float2)(width-1, height-1);	
+	posIn.y += yDelta;
 	float4 minusOne = read_imagef(idata, sampler, posIn);
 
 	// read 0 point
 	posIn.y += yDelta;
 	float4 current = read_imagef(idata, sampler, posIn);
 
-	// transform -1 point (no need to write to local memory)
-	minusOne -= ( read_imagef(idata, sampler, (float2)(posIn.x, (firstY - 2)*yDelta)) + current) /2;   
+	// +1 point
+	posIn.y += yDelta;
+	float4 plusOne = read_imagef(idata, sampler, posIn);
+
+	// +2 point
+	posIn.y += yDelta;
+	float4 plusTwo = read_imagef(idata, sampler, posIn);
+
 	for (int i = 0; i < steps; ++i) {
 
 		// 1. read from source image, transform columns, and store in local scratch
 		LOCAL float* currentScratch = scratch + getScratchOffset();
 		for (int j = 0; j < WIN_SIZE_Y; j+=2) {
+
+	        //read next two points
+
+			// +3 point
+			posIn.y += yDelta;
+			float4 plusThree = read_imagef(idata, sampler, posIn);
 	   
-			///////////////////////////////////////////////////////////////////////////////////////////
-			// fetch next two pixels, then transform and write current (odd) and last (even)  
-			
-			// read current plus one (odd) point
+	   		// +4 point
 			posIn.y += yDelta;
-			if (posIn.y > 1 + yDelta)
+	   		if (posIn.y > 1 + 3*yDelta)
 				break;
-			float4 currentPlusOne = read_imagef(idata, sampler, posIn);
-	
-			// read current plus two (even) point
-			posIn.y += yDelta;
-			float4 currentPlusTwo = read_imagef(idata, sampler, posIn);
+			float4 plusFour = read_imagef(idata, sampler, posIn);
 
-			// transform current plus one (odd) point
-			currentPlusOne -= (current + currentPlusTwo) /2;  // F.4, page 118, ITU-T Rec. T.800 final draft
-	
-			// transform current (even) point
-			current += (minusOne + currentPlusOne + 0.0078125f) /4; // F.3, page 118, ITU-T Rec. T.800 final draft
-	
+			float4 current_P2 =  current + P1*(minusOne + plusOne) +
+		         P2*( minusOne + U1*(minusTwo + current) + U1P1*(minusThree + 2*minusOne + plusOne) + 
+				      plusOne + U1*(current + plusTwo) + U1P1*(minusOne + 2*plusOne + plusThree)  );
+			
+			float4 current_U2 =  current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo) + 
+		      U2 *  (  minusOne + P1*(minusTwo + current) +
+		         P2*( minusTwo + U1*(minusThree + minusOne) + U1P1*(minusFour + 2*minusTwo + current) + 
+				      current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo)  ) +
 
-			//write current (even)
-			writePixel(current, currentScratch);
-
-			//write odd
-			currentScratch += VERTICAL_STRIDE;
-			writePixel(currentPlusOne, currentScratch);
+			            plusOne + P1*(current + plusTwo) +
+		         P2*( current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo) + 
+				      plusTwo + U1*(plusOne + plusThree) + U1P1*(current + 2*plusTwo + plusFour)  ) );
+									 
+					  
+			//write current U2 (even)
+			writePixel(scale97Div * current_U2, currentScratch);
 
 			//advance scratch pointer
 			currentScratch += VERTICAL_STRIDE;
 
-			//update registers
-			minusOne = currentPlusOne;
-			current = currentPlusTwo;
+			//write current P2 (odd)
+			writePixel(scale97Mul* current_P2 , currentScratch);
+
+			//advance scratch pointer
+			currentScratch += VERTICAL_STRIDE;
+
+			// shift registers up by two
+			minusFour = minusTwo;
+			minusThree = minusOne;
+			minusTwo = current;
+			minusOne = plusOne;
+			current = plusTwo;
+			plusOne = plusThree;
+			plusTwo = plusFour;
 		}
 
 		
@@ -197,32 +278,41 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 		
 		localMemoryFence();
-		//odd columns (skip right odd boundary column)
-		if ( (getLocalId(0)&1) && (getLocalId(0) != WIN_SIZE_X-1) ) {
+		// P2 - odd columns (skip left three boundary columns and all right boundary columns)
+		if ( (getLocalId(0)&1) && (getLocalId(0) >= BOUNDARY_X-1) && (getLocalId(0) < WIN_SIZE_X-BOUNDARY_X) ) {
 			for (int j = 0; j < WIN_SIZE_Y; j++) {
-				float4 currentOdd = readPixel(currentScratch);
-				float4 prevEven = readPixel(currentScratch + HORIZONTAL_ODD_TO_PREVIOUS_EVEN);
-				float4 nextEven = readPixel(currentScratch + HORIZONTAL_ODD_TO_NEXT_EVEN); 
-				currentOdd -= ((prevEven + nextEven) /2);
-				writePixel( currentOdd, currentScratch);
+				float4 current = readPixel(currentScratch);
+				float4 minusOne = readPixel(currentScratch + HORIZONTAL_ODD_TO_PREVIOUS_EVEN);
+				float4 minusTwo = readPixel(currentScratch -1);
+				float4 minusThree = readPixel(currentScratch + HORIZONTAL_ODD_TO_PREVIOUS_EVEN -1);
+				float4 plusOne = readPixel(currentScratch + HORIZONTAL_ODD_TO_NEXT_EVEN);
+				float4 plusTwo = readPixel(currentScratch + 1); 
+				float4 plusThree = readPixel(currentScratch + HORIZONTAL_ODD_TO_NEXT_EVEN+1);
+
+				float4 current_P2 =  current + P1*(minusOne + plusOne) +
+		         P2*( minusOne + U1*(minusTwo + current) + U1P1*(minusThree + 2*minusOne + plusOne) + 
+				      plusOne + U1*(current + plusTwo) + U1P1*(minusOne + 2*plusOne + plusThree)  );
+				writePixel(current_P2, currentScratch);
 				currentScratch += VERTICAL_STRIDE;
 			}
 		}
 		
+
 		currentScratch = scratch + getScratchOffset();	
 		localMemoryFence();
-		//even columns (skip left and right even boundary columns)
-		if ( !(getLocalId(0)&1) && (getLocalId(0) != 0) && (getLocalId(0) != WIN_SIZE_X-2)  ) {
+		//U2 - even columns (skip left and right boundary columns)
+		if ( !(getLocalId(0)&1) && (getLocalId(0) >= BOUNDARY_X) && (getLocalId(0) < WIN_SIZE_X-BOUNDARY_X)  ) {
 			for (int j = 0; j < WIN_SIZE_Y; j++) {
 				float4 currentEven = readPixel(currentScratch);
 				float4 prevOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_PREVIOUS_ODD);
 				float4 nextOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_NEXT_ODD); 
-				currentEven += (prevOdd + nextOdd + 0.0078125f) /4; 
-				writePixel( currentEven, currentScratch);
+				writePixel(currentEven + U2*(prevOdd + nextOdd), currentScratch);
 				currentScratch += VERTICAL_STRIDE;
 			}
 		}
 		localMemoryFence();
+		
+
 
 		//5. write local buffer column to destination image
 		// (only write non-boundary columns that are within the image bounds)
