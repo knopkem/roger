@@ -86,13 +86,13 @@ Predict Calculation:
 For S odd, we have:
 
 
-current_P1 = current + P1*(minusOne + plusOne)
+plusOne_P1 = plusOne + P1*(current + plusTwo)
 
-current_P2 = current_P1 + 
-             P2*(minusOne_U1 + plusOne_U1)
-           =   current + P1*(minusOne + plusOne) +
-		         P2*( minusOne + U1*(minusTwo + current) + U1P1*(minusThree + 2*minusOne + plusOne) + 
-				      plusOne + U1*(current + plusTwo) + U1P1*(minusOne + 2*plusOne + plusThree)  )
+plusOne_P2 = plusOne_P1 + 
+             P2*(current_U1 + plusTwo_U1)
+           =   plusOne + P1*(current + plusTwo) +
+		         P2*(current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo) + 
+				     plusTwo + U1*(plusOne + plusThree) + U1P1*(current + 2*plusTwo + plusFour)  )
 
 
 
@@ -103,17 +103,6 @@ For S even, we have
 current_U1 = current + U1*(minusOne_P1 + plusOne_P1)
            = current + U1*(minusOne + P1*(minusTwo + current) + plusOne + P1*(current + plusTwo))
 		   = current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo)
-
-current_U2 = current_U1 + U2*( minusOne_P2 + plusOne_P2)
-           =  current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo) + 
-		      U2 *  (  minusOne + P1*(minusTwo + current) +
-		         P2*( minusTwo + U1*(minusThree + minusOne) + U1P1*(minusFour + 2*minusTwo + current) + 
-				      current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo)  ) +
-
-			            plusOne + P1*(current + plusTwo) +
-		         P2*( current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo) + 
-				      plusTwo + U1*(plusOne + plusThree) + U1P1*(current + 2*plusTwo + plusFour)  ) )
-
 
 */
   
@@ -218,6 +207,11 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	posIn.y += yDelta;
 	float4 plusTwo = read_imagef(idata, sampler, posIn);
 
+	
+	float4 minusOne_P2 =  minusOne + P1*(minusTwo + current) +
+		         P2*(minusTwo + U1*(minusThree + plusOne) + U1P1*(minusTwo + 2*minusTwo + current) + 
+				     current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo)  );
+			
 	for (int i = 0; i < steps; ++i) {
 
 		// 1. read from source image, transform columns, and store in local scratch
@@ -236,19 +230,12 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 				break;
 			float4 plusFour = read_imagef(idata, sampler, posIn);
 
-			float4 current_P2 =  current + P1*(minusOne + plusOne) +
-		         P2*( minusOne + U1*(minusTwo + current) + U1P1*(minusThree + 2*minusOne + plusOne) + 
-				      plusOne + U1*(current + plusTwo) + U1P1*(minusOne + 2*plusOne + plusThree)  );
+			float4 plusOne_P2 =   plusOne + P1*(current + plusTwo) +
+		         P2*(current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo) + 
+				     plusTwo + U1*(plusOne + plusThree) + U1P1*(current + 2*plusTwo + plusFour)  );
 			
-			float4 current_U2 =  current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo) + 
-		      U2 *  (  minusOne + P1*(minusTwo + current) +
-		         P2*( minusTwo + U1*(minusThree + minusOne) + U1P1*(minusFour + 2*minusTwo + current) + 
-				      current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo)  ) +
-
-			            plusOne + P1*(current + plusTwo) +
-		         P2*( current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo) + 
-				      plusTwo + U1*(plusOne + plusThree) + U1P1*(current + 2*plusTwo + plusFour)  ) );
-									 
+			float4 current_U2 =  current +  U2 * (minusOne_P2 + plusOne_P2);
+											 
 					  
 			//write current U2 (even)
 			writePixel(scale97Div * current_U2, currentScratch);
@@ -257,7 +244,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			currentScratch += VERTICAL_STRIDE;
 
 			//write current P2 (odd)
-			writePixel(scale97Mul* current_P2 , currentScratch);
+			writePixel(scale97Mul* plusOne_P2 , currentScratch);
 
 			//advance scratch pointer
 			currentScratch += VERTICAL_STRIDE;
@@ -270,6 +257,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			current = plusTwo;
 			plusOne = plusThree;
 			plusTwo = plusFour;
+			minusOne_P2 = plusOne_P2;
 		}
 
 		
