@@ -61,8 +61,10 @@ Right (odd) boundary column
 #define HORIZONTAL_EVEN_TO_PREVIOUS_ODD  511
 #define HORIZONTAL_EVEN_TO_NEXT_ODD      512
 
+#define HORIZONTAL_ODD_TO_PREVIOUS_EVEN_MINUS_ONE -513
 #define HORIZONTAL_ODD_TO_PREVIOUS_EVEN -512
 #define HORIZONTAL_ODD_TO_NEXT_EVEN     -511
+#define HORIZONTAL_ODD_TO_NEXT_EVEN_PLUS_ONE     -510
 
 CONSTANT float P1 = -1.586134342;   ///< forward 9/7 predict 1
 CONSTANT float U1 = -0.05298011854;  ///< forward 9/7 update 1
@@ -119,7 +121,7 @@ inline int getCorrectedGlobalIdX() {
 
 
 // read pixel from local buffer
-float4 readPixel( LOCAL float*  restrict  src) {
+inline float4 readPixel( LOCAL float*  restrict  src) {
 	return (float4)(*src, *(src+CHANNEL_BUFFER_SIZE),  *(src+CHANNEL_BUFFER_SIZE_X2),  *(src+CHANNEL_BUFFER_SIZE_X3)) ;
 }
 
