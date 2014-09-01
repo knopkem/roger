@@ -284,13 +284,37 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 		// P2 - odd columns (skip left three boundary columns and all right boundary columns)
 		if ( (getLocalId(0)&1) && (getLocalId(0) >= BOUNDARY_X-1) && (getLocalId(0) < WIN_SIZE_X-BOUNDARY_X) ) {
 			for (int j = 0; j < WIN_SIZE_Y; j++) {
-				float4 plusOne = readPixel(currentScratch);
-				float4 current = readPixel(currentScratch + HORIZONTAL_ODD_TO_PREVIOUS_EVEN);
 				float4 minusOne = readPixel(currentScratch -1);
-				float4 minusTwo = readPixel(currentScratch + HORIZONTAL_ODD_TO_PREVIOUS_EVEN -1);
-				float4 plusTwo = readPixel(currentScratch + HORIZONTAL_ODD_TO_NEXT_EVEN);
+				float4 plusOne = readPixel(currentScratch);
 				float4 plusThree = readPixel(currentScratch + 1); 
-				float4 plusFour = readPixel(currentScratch + HORIZONTAL_ODD_TO_NEXT_EVEN+1);
+
+				float4 minusTwo, current,plusTwo, plusFour;
+
+				minusTwo.x = currentScratch[HORIZONTAL_ODD_TO_PREVIOUS_EVEN_MINUS_ONE];
+				current.x  = currentScratch[HORIZONTAL_ODD_TO_PREVIOUS_EVEN];
+				plusTwo.x  = currentScratch[HORIZONTAL_ODD_TO_NEXT_EVEN];
+				plusFour.x = currentScratch[HORIZONTAL_ODD_TO_NEXT_EVEN_PLUS_ONE];
+
+				currentScratch += CHANNEL_BUFFER_SIZE;
+				minusTwo.y = currentScratch[HORIZONTAL_ODD_TO_PREVIOUS_EVEN_MINUS_ONE];
+				current.y  = currentScratch[HORIZONTAL_ODD_TO_PREVIOUS_EVEN];
+				plusTwo.y  = currentScratch[HORIZONTAL_ODD_TO_NEXT_EVEN];
+				plusFour.y = currentScratch[HORIZONTAL_ODD_TO_NEXT_EVEN_PLUS_ONE];
+
+				currentScratch += CHANNEL_BUFFER_SIZE;
+				minusTwo.z = currentScratch[HORIZONTAL_ODD_TO_PREVIOUS_EVEN_MINUS_ONE];
+				current.z  = currentScratch[HORIZONTAL_ODD_TO_PREVIOUS_EVEN];
+				plusTwo.z  = currentScratch[HORIZONTAL_ODD_TO_NEXT_EVEN];
+				plusFour.z = currentScratch[HORIZONTAL_ODD_TO_NEXT_EVEN_PLUS_ONE];
+
+
+				currentScratch += CHANNEL_BUFFER_SIZE;
+				minusTwo.w = currentScratch[HORIZONTAL_ODD_TO_PREVIOUS_EVEN_MINUS_ONE];
+				current.w  = currentScratch[HORIZONTAL_ODD_TO_PREVIOUS_EVEN];
+				plusTwo.w  = currentScratch[HORIZONTAL_ODD_TO_NEXT_EVEN];
+				plusFour.w = currentScratch[HORIZONTAL_ODD_TO_NEXT_EVEN_PLUS_ONE];
+
+				currentScratch -= CHANNEL_BUFFER_SIZE_X3;
 
 				float4 current_U1 = current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo);
 				float4 plusOne_P2 =   plusOne + P1*(current + plusTwo) +
@@ -310,8 +334,31 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			for (int j = 0; j < WIN_SIZE_Y; j++) {
 
 				float4 current = readPixel(currentScratch);
-				float4 prevOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_PREVIOUS_ODD);
-				float4 nextOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_NEXT_ODD); 
+
+				// read previous and next odd
+				float4 prevOdd, nextOdd;
+
+				prevOdd.x = currentScratch[HORIZONTAL_EVEN_TO_PREVIOUS_ODD];
+				nextOdd.x  = currentScratch[HORIZONTAL_EVEN_TO_NEXT_ODD];
+
+
+				currentScratch += CHANNEL_BUFFER_SIZE;
+				prevOdd.y = currentScratch[HORIZONTAL_EVEN_TO_PREVIOUS_ODD];
+				nextOdd.y  = currentScratch[HORIZONTAL_EVEN_TO_NEXT_ODD];
+
+				currentScratch += CHANNEL_BUFFER_SIZE;
+				prevOdd.z = currentScratch[HORIZONTAL_EVEN_TO_PREVIOUS_ODD];
+				nextOdd.z  = currentScratch[HORIZONTAL_EVEN_TO_NEXT_ODD];
+
+
+				currentScratch += CHANNEL_BUFFER_SIZE;
+				prevOdd.w = currentScratch[HORIZONTAL_EVEN_TO_PREVIOUS_ODD];
+				nextOdd.w  = currentScratch[HORIZONTAL_EVEN_TO_NEXT_ODD];
+
+				currentScratch -= CHANNEL_BUFFER_SIZE_X3;
+				//////////////////////////////////////////////////////////////////
+
+
 				writePixel(current + U2*(prevOdd + nextOdd), currentScratch);
 				currentScratch += VERTICAL_STRIDE;
 			}
