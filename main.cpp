@@ -23,7 +23,6 @@ using namespace cv;
 
 #include "OCLUtil.h"
 #include "OCLTest.h"
-#define OCL_SAMPLE_IMAGE_NAME "baboon.png"
 
 extern bool quiet;
 

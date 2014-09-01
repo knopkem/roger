@@ -304,10 +304,16 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 		//U2 - even columns (skip left and right boundary columns)
 		if ( !(getLocalId(0)&1) && (getLocalId(0) >= BOUNDARY_X) && (getLocalId(0) < WIN_SIZE_X-BOUNDARY_X)  ) {
 			for (int j = 0; j < WIN_SIZE_Y; j++) {
-				float4 currentEven = readPixel(currentScratch);
+
+				float4 current = readPixel(currentScratch);
+				float4 minusOne = readPixel(currentScratch + HORIZONTAL_EVEN_TO_PREVIOUS_ODD);
+				float4 minusTwo = readPixel(currentScratch -1);
+				float4 plusOne = readPixel(currentScratch + HORIZONTAL_EVEN_TO_NEXT_ODD);
+				float4 plusTwo = readPixel(currentScratch + 1); 
 				float4 prevOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_PREVIOUS_ODD);
 				float4 nextOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_NEXT_ODD); 
-				writePixel(currentEven + U2*(prevOdd + nextOdd), currentScratch);
+				writePixel(current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo) +
+				                                                   U2*(prevOdd + nextOdd), currentScratch);
 				currentScratch += VERTICAL_STRIDE;
 			}
 		}
