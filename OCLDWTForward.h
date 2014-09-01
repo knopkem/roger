@@ -15,25 +15,23 @@
 
 #pragma once
 
-#include "OCLUtil.h"
-#include "OCLEncoder.h"
-#include "OCLDecoder.h"
+#include "OCLKernel.h"
+#include "OCLDWT.h"
+#include <vector>
+#include "OCLMemoryManager.h"
 
-template< typename T > class OCLTest
+
+
+template<typename T> class OCLDWTForward : public OCLDWT<T>
 {
 public:
-	OCLTest(void);
-	~OCLTest(void);
+	OCLDWTForward(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr);
+	~OCLDWTForward(void);
 
-	void test();
+	void encode(bool lossy, std::vector<T*> components,int w,	int h,int windowX, int windowY);
 private:
-	void testInit();
-    void testRun(std::vector<T*> components,int w,int h);
-	void testFinish();
-	T* getTestResults();
-
-	OCLEncoder<T>* encoder;
-	OCLDecoder<T>* decoder;
+	OCLKernel* forward53;
+	OCLKernel* forward97;
 
 };
 

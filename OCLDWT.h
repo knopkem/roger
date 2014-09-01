@@ -26,15 +26,11 @@ template<typename T> class OCLDWT
 public:
 	OCLDWT(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr);
 	~OCLDWT(void);
-
-	void encode(bool lossy, std::vector<T*> components,int w,	int h,int windowX, int windowY);
-private:
-
+protected:
+	void run(OCLKernel* targetKernel, bool lossy, std::vector<T*> components,	int w,	int h, int windowX, int windowY);
 	tDeviceRC setKernelArgs(OCLKernel* myKernel,int steps);
 	KernelInitInfoBase initInfo;
 	OCLMemoryManager<T>* memoryManager;
-	OCLKernel* forward53;
-	OCLKernel* forward97;
 
 };
 

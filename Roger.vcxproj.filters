@@ -24,6 +24,12 @@
     <Intel_OpenCL_Build_Rules Include="ocldwt97.cl">
       <Filter>OpenCL Files</Filter>
     </Intel_OpenCL_Build_Rules>
+    <Intel_OpenCL_Build_Rules Include="ocldwt53rev.cl">
+      <Filter>OpenCL Files</Filter>
+    </Intel_OpenCL_Build_Rules>
+    <Intel_OpenCL_Build_Rules Include="ocldwt97rev.cl">
+      <Filter>OpenCL Files</Filter>
+    </Intel_OpenCL_Build_Rules>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ocl_platform.h">
@@ -50,10 +56,19 @@
     <ClInclude Include="OCLTest.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="OCLDWT.h">
+    <ClInclude Include="OCLEncoder.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="OCLEncoder.h">
+    <ClInclude Include="OCLDecoder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OCLDWTRev.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OCLDWTForward.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OCLDWT.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -82,10 +97,19 @@
     <ClCompile Include="OCLTest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="OCLDWT.cpp">
+    <ClCompile Include="OCLEncoder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="OCLEncoder.cpp">
+    <ClCompile Include="OCLDecoder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OCLDWTRev.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OCLDWTForward.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OCLDWT.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

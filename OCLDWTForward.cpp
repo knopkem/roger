@@ -16,24 +16,29 @@
 #pragma once
 
 #include "OCLDWTForward.h"
-struct ocl_args_d_t;
-#include <vector>
 #include "OCLMemoryManager.h"
+#include <stdint.h>
+#include "OCLDWT.cpp"
 
 
-template<typename T>  class OCLEncoder
+template<typename T> OCLDWTForward<T>::OCLDWTForward(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr) : OCLDWT<T>(initInfo, memMgr),
+	               	forward53(new OCLKernel( KernelInitInfo(initInfo, "ocldwt53.cl", "run") )),
+					forward97(new OCLKernel( KernelInitInfo(initInfo, "ocldwt97.cl", "run") ))
+				
+											
 {
-public:
-	OCLEncoder(ocl_args_d_t* ocl, bool isLossy);
-	~OCLEncoder(void);
-	void encode(std::vector<T*> components,int w,int h);
-	tDeviceRC mapOutput(void** mappedPtr);
-	tDeviceRC unmapOutput(void* mappedPtr);
-	void finish(void);
-private:
-	ocl_args_d_t* _ocl;
-	bool lossy;
-	OCLMemoryManager<T>* memoryManager;
-	OCLDWTForward<T>* dwt;
-	
-};
+}
+
+
+template<typename T> OCLDWTForward<T>::~OCLDWTForward(void)
+{
+	if (forward53)
+		delete forward53;
+	if (forward97)
+		delete forward97;
+}
+
+template<typename T> void OCLDWTForward<T>::encode(bool lossy, std::vector<T*> components,	int w,	int h, int windowX, int windowY) {
+
+	run(lossy?forward97:forward53, lossy, components,w,h,windowX, windowY);
+}

@@ -27,9 +27,7 @@ inline int divRndUp(const int n, const int d) {
 
 template<typename T> OCLDWT<T>::OCLDWT(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr) : 
 	                initInfo(initInfo),
-					memoryManager(memMgr),
-					forward53(new OCLKernel( KernelInitInfo(initInfo, "ocldwt53.cl", "run") )),
-					forward97(new OCLKernel( KernelInitInfo(initInfo, "ocldwt97.cl", "run") ))
+					memoryManager(memMgr)
 				
 											
 {
@@ -38,18 +36,15 @@ template<typename T> OCLDWT<T>::OCLDWT(KernelInitInfoBase initInfo, OCLMemoryMan
 
 template<typename T> OCLDWT<T>::~OCLDWT(void)
 {
-	if (forward53)
-		delete forward53;
-	if (forward97)
-		delete forward97;
 }
 
-template<typename T> void OCLDWT<T>::encode(bool lossy, std::vector<T*> components,	int w,	int h, int windowX, int windowY) {
+
+
+template<typename T> void OCLDWT<T>::run(OCLKernel* targetKernel, bool lossy, std::vector<T*> components,	int w,	int h, int windowX, int windowY) {
 
 	if (components.size() == 0)
 		return;
 	if (lossy) {
-		OCLKernel* targetKernel = forward97;
 		memoryManager->init(components,w,h,lossy);
 		const int steps = divRndUp(h, 15 * windowY);
 		setKernelArgs(targetKernel,steps);
@@ -63,7 +58,6 @@ template<typename T> void OCLDWT<T>::encode(bool lossy, std::vector<T*> componen
 	   targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
 
 	} else {
-		OCLKernel* targetKernel = forward53;
 		memoryManager->init(components,w,h,lossy);
 		const int steps = divRndUp(h, 15 * windowY);
 		setKernelArgs(targetKernel,steps);
@@ -78,6 +72,7 @@ template<typename T> void OCLDWT<T>::encode(bool lossy, std::vector<T*> componen
 
 	}
 }
+
 
 
 template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,int steps){

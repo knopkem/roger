@@ -15,25 +15,32 @@
 
 #pragma once
 
-#include "OCLDWTForward.h"
-struct ocl_args_d_t;
-#include <vector>
+#include "OCLDWTRev.h"
 #include "OCLMemoryManager.h"
+#include <stdint.h>
+#include "OCLDWT.cpp"
 
 
-template<typename T>  class OCLEncoder
+
+template<typename T> OCLDWTRev<T>::OCLDWTRev(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr) : OCLDWT<T>(initInfo, memMgr),
+					reverse53(new OCLKernel( KernelInitInfo(initInfo, "ocldwt53rev.cl", "run") )),
+					reverse97(new OCLKernel( KernelInitInfo(initInfo, "ocldwt97rev.cl", "run") ))
+				
+											
 {
-public:
-	OCLEncoder(ocl_args_d_t* ocl, bool isLossy);
-	~OCLEncoder(void);
-	void encode(std::vector<T*> components,int w,int h);
-	tDeviceRC mapOutput(void** mappedPtr);
-	tDeviceRC unmapOutput(void* mappedPtr);
-	void finish(void);
-private:
-	ocl_args_d_t* _ocl;
-	bool lossy;
-	OCLMemoryManager<T>* memoryManager;
-	OCLDWTForward<T>* dwt;
-	
-};
+}
+
+
+template<typename T> OCLDWTRev<T>::~OCLDWTRev(void)
+{
+	if (reverse53)
+		delete reverse53;
+	if (reverse97)
+		delete reverse97;
+}
+
+template<typename T> void OCLDWTRev<T>::decode(bool lossy, std::vector<T*> components,	int w,	int h, int windowX, int windowY) {
+
+	run(lossy?reverse97:reverse53, lossy, components,w,h,windowX, windowY);
+}
+

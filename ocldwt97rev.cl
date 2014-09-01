@@ -66,19 +66,23 @@ Right (odd) boundary column
 #define HORIZONTAL_ODD_TO_NEXT_EVEN     -511
 #define HORIZONTAL_ODD_TO_NEXT_EVEN_PLUS_ONE     -510
 
-CONSTANT float P1 = -1.586134342;   ///< forward 9/7 predict 1
-CONSTANT float U1 = -0.05298011854;  ///< forward 9/7 update 1
-CONSTANT float P2 = 0.8829110762;   ///< forward 9/7 predict 2
-CONSTANT float U2 = 0.4435068522;    ///< forward 9/7 update 2
+CONSTANT float U2 = -0.4435068522;    ///< undo 9/7 update 2
+CONSTANT float P2 = -0.8829110762;  ///< undo 9/7 predict 2
+CONSTANT float U1 = 0.05298011854;    ///< undo 9/7 update 1
+CONSTANT float P1 = 1.586134342;  ///< undo 9/7 predict 1
+
 CONSTANT float U1P1 = 0.08403358545952490068;
+
 
 CONSTANT float scale97Mul = 1.23017410491400f;
 CONSTANT float scale97Div = 1.0 / 1.23017410491400f;
 
 /*
 
-Lifting scheme consists of four steps: Predict1 Update1 Predict2 Update2
-followed by scaling (even points are scaled by scale97Div, odd points are scaled by scale97Mul)
+Reverse Lifting scheme consists of reverse scaling followed by four steps: 
+ReverseUpdate2 ReversePredict2 ReverseUpdate1 ReversePredict1   
+
+Even points are scaled by scale97Mul, odd points are scaled by scale97Div.
 
 If the odd predict2 pixels are calculated first, then the even update2 pixels
 can be easily calculated.
@@ -148,13 +152,13 @@ void writeColumnToOutput(LOCAL float* restrict currentScratch, __write_only imag
 	    if (posOut.y >= halfHeight)
 			break;
 
-		write_imagef(odata, posOut,scale97Div * readPixel(currentScratch));
+		write_imagef(odata, posOut,readPixel(currentScratch));
 
 		// odd row
 		currentScratch += VERTICAL_STRIDE ;
 		posOut.y+= halfHeight;
 
-		write_imagef(odata, posOut,scale97Mul * readPixel(currentScratch));
+		write_imagef(odata, posOut,readPixel(currentScratch));
 
 		currentScratch += VERTICAL_STRIDE;
 		posOut.y -= (halfHeight - 1);
@@ -185,30 +189,30 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 	// read -4 point
 	float2 posIn = (float2)(inputX, firstY - 4) /  (float2)(width-1, height-1);	
-	float4 minusFour = read_imagef(idata, sampler, posIn);
+	float4 minusFour = scale97Mul*read_imagef(idata, sampler, posIn);
 
 	posIn.y += yDelta;
-	float4 minusThree = read_imagef(idata, sampler, posIn);
+	float4 minusThree = scale97Div*read_imagef(idata, sampler, posIn);
 
 	// read -2 point
 	posIn.y += yDelta;
-	float4 minusTwo = read_imagef(idata, sampler, posIn);
+	float4 minusTwo = scale97Mul*read_imagef(idata, sampler, posIn);
 
 	// read -1 point
 	posIn.y += yDelta;
-	float4 minusOne = read_imagef(idata, sampler, posIn);
+	float4 minusOne = scale97Div*read_imagef(idata, sampler, posIn);
 
 	// read 0 point
 	posIn.y += yDelta;
-	float4 current = read_imagef(idata, sampler, posIn);
+	float4 current = scale97Mul*read_imagef(idata, sampler, posIn);
 
 	// +1 point
 	posIn.y += yDelta;
-	float4 plusOne = read_imagef(idata, sampler, posIn);
+	float4 plusOne = scale97Div*read_imagef(idata, sampler, posIn);
 
 	// +2 point
 	posIn.y += yDelta;
-	float4 plusTwo = read_imagef(idata, sampler, posIn);
+	float4 plusTwo = scale97Mul*read_imagef(idata, sampler, posIn);
 
 	float4 minusThree_P1 = minusThree + P1*(minusFour + minusTwo);
 	float4 minusOne_P1   = minusOne   + P1*(minusTwo + current);
@@ -228,13 +232,13 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 			// +3 point
 			posIn.y += yDelta;
-			float4 plusThree = read_imagef(idata, sampler, posIn);
+			float4 plusThree = scale97Div*read_imagef(idata, sampler, posIn);
 	   
 	   		// +4 point
 			posIn.y += yDelta;
 	   		if (posIn.y > 1 + 3*yDelta)
 				break;
-			float4 plusFour = read_imagef(idata, sampler, posIn);
+			float4 plusFour = scale97Mul*read_imagef(idata, sampler, posIn);
 
 			float4 plusThree_P1    = plusThree  + P1*(plusTwo + plusFour);
 			float4 plusTwo_U1      = plusTwo + U1*(plusOne_P1 + plusThree_P1);
@@ -242,13 +246,13 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 								 
 					  
 			//write current U2 (even)
-			writePixel(scale97Div * (current_U1 +  U2 * (minusOne_P2 + plusOne_P2)), currentScratch);
+			writePixel( (current_U1 +  U2 * (minusOne_P2 + plusOne_P2)), currentScratch);
 
 			//advance scratch pointer
 			currentScratch += VERTICAL_STRIDE;
 
 			//write current P2 (odd)
-			writePixel(scale97Mul* plusOne_P2 , currentScratch);
+			writePixel(plusOne_P2 , currentScratch);
 
 			//advance scratch pointer
 			currentScratch += VERTICAL_STRIDE;

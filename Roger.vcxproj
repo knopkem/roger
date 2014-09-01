@@ -152,15 +152,24 @@
       <OTHER Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-D WIN_SIZE_X=128 -D WIN_SIZE_Y=8 </OTHER>
       <OTHER Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">-D WIN_SIZE_X=128 -D WIN_SIZE_Y=8</OTHER>
     </Intel_OpenCL_Build_Rules>
+    <Intel_OpenCL_Build_Rules Include="ocldwt53rev.cl">
+      <OTHER Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-D WIN_SIZE_X=128 -D WIN_SIZE_Y=8 </OTHER>
+    </Intel_OpenCL_Build_Rules>
     <Intel_OpenCL_Build_Rules Include="ocldwt97.cl">
+      <OTHER Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-D WIN_SIZE_X=128 -D WIN_SIZE_Y=8 </OTHER>
+    </Intel_OpenCL_Build_Rules>
+    <Intel_OpenCL_Build_Rules Include="ocldwt97rev.cl">
       <OTHER Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-D WIN_SIZE_X=128 -D WIN_SIZE_Y=8 </OTHER>
     </Intel_OpenCL_Build_Rules>
     <Intel_OpenCL_Build_Rules Include="ocl_platform.cl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="OCLBasic.h" />
+    <ClInclude Include="OCLDecoder.h" />
     <ClInclude Include="OCLDeviceManager.h" />
     <ClInclude Include="OCLDWT.h" />
+    <ClInclude Include="OCLDWTForward.h" />
+    <ClInclude Include="OCLDWTRev.h" />
     <ClInclude Include="OCLEncoder.h" />
     <ClInclude Include="OCLTest.h" />
     <ClInclude Include="OCLKernel.h" />
@@ -172,8 +181,11 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="OCLBasic.cpp" />
+    <ClCompile Include="OCLDecoder.cpp" />
     <ClCompile Include="OCLDeviceManager.cpp" />
     <ClCompile Include="OCLDWT.cpp" />
+    <ClCompile Include="OCLDWTForward.cpp" />
+    <ClCompile Include="OCLDWTRev.cpp" />
     <ClCompile Include="OCLEncoder.cpp" />
     <ClCompile Include="OCLTest.cpp" />
     <ClCompile Include="OCLKernel.cpp" />

@@ -15,43 +15,43 @@
 
 #pragma once
 
-#include "OCLEncoder.h"
-#include "OCLDWTForward.cpp"
+#include "OCLDecoder.h"
+#include "OCLDWTRev.cpp"
 #include "OCLUtil.h"
 #include "OCLMemoryManager.cpp"
 
 
 
 
-template<typename T> OCLEncoder<T>::OCLEncoder(ocl_args_d_t* ocl, bool isLossy) :
+template<typename T> OCLDecoder<T>::OCLDecoder(ocl_args_d_t* ocl, bool isLossy) :
 	_ocl(ocl), 
 	lossy(isLossy),
 	memoryManager(new OCLMemoryManager<T>(ocl)),
-	dwt(new OCLDWTForward<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=128 -D WIN_SIZE_Y=8"), memoryManager))
+	dwt(new OCLDWTRev<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=128 -D WIN_SIZE_Y=8"), memoryManager))
 {
 
 }
 
 
-template<typename T> OCLEncoder<T>::~OCLEncoder(){
+template<typename T> OCLDecoder<T>::~OCLDecoder(){
 	if (dwt)
 		delete dwt;
 }
 
-template<typename T> void OCLEncoder<T>::encode(std::vector<T*> components,int w,int h){
+template<typename T> void OCLDecoder<T>::decode(std::vector<T*> components,int w,int h){
 	memoryManager->init(components,w,h,lossy);
-	dwt->encode(lossy, components, w,h, 128,8);
+	dwt->decode(lossy, components, w,h, 128,8);
 }
 
-template<typename T> void OCLEncoder<T>::finish(void){
+template<typename T> void OCLDecoder<T>::finish(void){
 
 	clFinish(_ocl->commandQueue);
 }
 
-template<typename T>  tDeviceRC OCLEncoder<T>::mapOutput(void** mappedPtr){
+template<typename T>  tDeviceRC OCLDecoder<T>::mapOutput(void** mappedPtr){
 	return memoryManager->mapImage(*memoryManager->getDwtOut(), mappedPtr);
 }
-template<typename T> tDeviceRC OCLEncoder<T>::unmapOutput(void* mappedPtr){
+template<typename T> tDeviceRC OCLDecoder<T>::unmapOutput(void* mappedPtr){
 
 	return memoryManager->unmapImage(*memoryManager->getDwtOut(), mappedPtr);
 }

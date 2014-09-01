@@ -21,25 +21,30 @@
 #include "opencv2/highgui/highgui.hpp"
 
 #include "OCLEncoder.cpp"
+#include "OCLDecoder.cpp"
 
 using namespace cv;
 
 
 #include "OCLBasic.h"
 #include "OCLDeviceManager.h"
-#include "OCLDWT.cpp"
-
+#include "OCLDWTForward.cpp"
+#include "OCLDWTRev.cpp"
 
 #define OCL_SAMPLE_IMAGE_NAME "baboon.png"
 
 
-template<typename T>  OCLTest<T>::OCLTest(void) : encoder(NULL)
+template<typename T>  OCLTest<T>::OCLTest(void) : encoder(NULL), decoder(NULL)
 {
 }
 
 
 template<typename T> OCLTest<T>::~OCLTest(void)
 {
+	if (encoder)
+		delete encoder;
+	if (decoder)
+		delete decoder;
 }
 
 template<typename T> void OCLTest<T>::test()
@@ -111,7 +116,6 @@ template<typename T> void OCLTest<T>::test()
 	}
 
 	encoder->unmapOutput(results);
-	delete encoder;
 	delete[] input;
 
     imshow("After:", img_dst);
@@ -125,20 +129,20 @@ template<typename T> void OCLTest<T>::testInit() {
 	OCLDeviceManager* deviceManager = new OCLDeviceManager();
 	deviceManager->init();
 	encoder = new OCLEncoder<T>(deviceManager->getInfo(), true);
-
+	decoder = new OCLDecoder<T>(deviceManager->getInfo(), true);
 }
 
 
 template<typename T> void OCLTest<T>::testRun(std::vector<T*> components,int w,int h) {
-	encoder->encode(components,w,h);
+	decoder->decode(components,w,h);
 }
 
 template<typename T> void OCLTest<T>::testFinish() {
-	encoder->finish();
+	decoder->finish();
 }
 
 template<typename T> T* OCLTest<T>::getTestResults(){
 	void* ptr;
-	encoder->mapOutput(&ptr);
+	decoder->mapOutput(&ptr);
 	return (T*)ptr;
 }
