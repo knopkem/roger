@@ -104,6 +104,8 @@ current_U1 = current + U1*(minusOne_P1 + plusOne_P1)
            = current + U1*(minusOne + P1*(minusTwo + current) + plusOne + P1*(current + plusTwo))
 		   = current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo)
 
+current_U2 = current_U1 + U2*(minusOne_P2 + plusOne_P2)
+
 */
   
 
@@ -207,11 +209,14 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	posIn.y += yDelta;
 	float4 plusTwo = read_imagef(idata, sampler, posIn);
 
-	
-	float4 minusOne_P2 =  minusOne + P1*(minusTwo + current) +
-		         P2*(minusTwo + U1*(minusThree + plusOne) + U1P1*(minusTwo + 2*minusTwo + current) + 
-				     current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo)  );
-			
+	float4 minusThree_P1 = minusThree + P1*(minusFour + minusTwo);
+	float4 minusOne_P1   = minusOne   + P1*(minusTwo + current);
+	float4 plusOne_P1    = plusOne    + P1*(current + plusTwo);
+
+	float4 minusTwo_U1 = minusTwo + U1*(minusThree_P1 + minusOne_P1);
+	float4 current_U1  = current + U1*(minusOne_P1 + plusOne_P1);
+	float4 minusOne_P2 = minusOne_P1 + P2*(minusTwo_U1 + current_U1);
+		
 	for (int i = 0; i < steps; ++i) {
 
 		// 1. read from source image, transform columns, and store in local scratch
@@ -230,15 +235,13 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 				break;
 			float4 plusFour = read_imagef(idata, sampler, posIn);
 
-			float4 plusOne_P2 =   plusOne + P1*(current + plusTwo) +
-		         P2*(current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo) + 
-				     plusTwo + U1*(plusOne + plusThree) + U1P1*(current + 2*plusTwo + plusFour)  );
-			
-			float4 current_U2 =  current +  U2 * (minusOne_P2 + plusOne_P2);
-											 
+			float4 plusThree_P1    = plusThree  + P1*(plusTwo + plusFour);
+			float4 plusTwo_U1      = plusTwo + U1*(plusOne_P1 + plusThree_P1);
+			float4 plusOne_P2      = plusOne_P1 + P2*(current_U1 + plusTwo_U1);
+								 
 					  
 			//write current U2 (even)
-			writePixel(scale97Div * current_U2, currentScratch);
+			writePixel(scale97Div * (current_U1 +  U2 * (minusOne_P2 + plusOne_P2)), currentScratch);
 
 			//advance scratch pointer
 			currentScratch += VERTICAL_STRIDE;
@@ -257,6 +260,16 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			current = plusTwo;
 			plusOne = plusThree;
 			plusTwo = plusFour;
+			//update P1s
+			minusThree_P1 = minusOne_P1;
+			minusOne_P1 = plusOne_P1;
+			plusOne_P1 = plusThree_P1;
+
+			//update U1s
+			minusTwo_U1 = current_U1;
+			current_U1 = plusTwo_U1;
+
+			//update P2s
 			minusOne_P2 = plusOne_P2;
 		}
 
