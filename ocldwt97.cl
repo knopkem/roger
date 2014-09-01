@@ -282,18 +282,20 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 		// P2 - odd columns (skip left three boundary columns and all right boundary columns)
 		if ( (getLocalId(0)&1) && (getLocalId(0) >= BOUNDARY_X-1) && (getLocalId(0) < WIN_SIZE_X-BOUNDARY_X) ) {
 			for (int j = 0; j < WIN_SIZE_Y; j++) {
-				float4 current = readPixel(currentScratch);
-				float4 minusOne = readPixel(currentScratch + HORIZONTAL_ODD_TO_PREVIOUS_EVEN);
-				float4 minusTwo = readPixel(currentScratch -1);
-				float4 minusThree = readPixel(currentScratch + HORIZONTAL_ODD_TO_PREVIOUS_EVEN -1);
-				float4 plusOne = readPixel(currentScratch + HORIZONTAL_ODD_TO_NEXT_EVEN);
-				float4 plusTwo = readPixel(currentScratch + 1); 
-				float4 plusThree = readPixel(currentScratch + HORIZONTAL_ODD_TO_NEXT_EVEN+1);
+				float4 plusOne = readPixel(currentScratch);
+				float4 current = readPixel(currentScratch + HORIZONTAL_ODD_TO_PREVIOUS_EVEN);
+				float4 minusOne = readPixel(currentScratch -1);
+				float4 minusTwo = readPixel(currentScratch + HORIZONTAL_ODD_TO_PREVIOUS_EVEN -1);
+				float4 plusTwo = readPixel(currentScratch + HORIZONTAL_ODD_TO_NEXT_EVEN);
+				float4 plusThree = readPixel(currentScratch + 1); 
+				float4 plusFour = readPixel(currentScratch + HORIZONTAL_ODD_TO_NEXT_EVEN+1);
 
-				float4 current_P2 =  current + P1*(minusOne + plusOne) +
-		         P2*( minusOne + U1*(minusTwo + current) + U1P1*(minusThree + 2*minusOne + plusOne) + 
-				      plusOne + U1*(current + plusTwo) + U1P1*(minusOne + 2*plusOne + plusThree)  );
-				writePixel(current_P2, currentScratch);
+				float4 current_U1 = current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo);
+				float4 plusOne_P2 =   plusOne + P1*(current + plusTwo) +
+		           P2*(current_U1 + plusTwo + U1*(plusOne + plusThree) + U1P1*(current + 2*plusTwo + plusFour)  );
+
+				writePixel(plusOne_P2, currentScratch);
+				writePixel(current_U1, currentScratch + HORIZONTAL_ODD_TO_PREVIOUS_EVEN);
 				currentScratch += VERTICAL_STRIDE;
 			}
 		}
@@ -306,14 +308,9 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			for (int j = 0; j < WIN_SIZE_Y; j++) {
 
 				float4 current = readPixel(currentScratch);
-				float4 minusOne = readPixel(currentScratch + HORIZONTAL_EVEN_TO_PREVIOUS_ODD);
-				float4 minusTwo = readPixel(currentScratch -1);
-				float4 plusOne = readPixel(currentScratch + HORIZONTAL_EVEN_TO_NEXT_ODD);
-				float4 plusTwo = readPixel(currentScratch + 1); 
 				float4 prevOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_PREVIOUS_ODD);
 				float4 nextOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_NEXT_ODD); 
-				writePixel(current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo) +
-				                                                   U2*(prevOdd + nextOdd), currentScratch);
+				writePixel(current + U2*(prevOdd + nextOdd), currentScratch);
 				currentScratch += VERTICAL_STRIDE;
 			}
 		}
