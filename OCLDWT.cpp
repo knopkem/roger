@@ -39,42 +39,6 @@ template<typename T> OCLDWT<T>::~OCLDWT(void)
 }
 
 
-
-template<typename T> void OCLDWT<T>::run(OCLKernel* targetKernel, bool lossy, std::vector<T*> components,	int w,	int h, int windowX, int windowY) {
-
-	if (components.size() == 0)
-		return;
-	if (lossy) {
-		memoryManager->init(components,w,h,lossy);
-		const int steps = divRndUp(h, 15 * windowY);
-		setKernelArgs(targetKernel,steps);
-
-		size_t global_offset[3] = {-4,0,0};   //left boundary
-
-		//add one extra windowX to make up for group overlap due to boundary
-	   size_t global_work_size[3] = {(divRndUp(w, windowX) + 1)* windowX, divRndUp(h, windowY * steps),1};
-	   size_t local_work_size[3] = {windowX,1,1};
-
-	   targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
-
-	} else {
-		memoryManager->init(components,w,h,lossy);
-		const int steps = divRndUp(h, 15 * windowY);
-		setKernelArgs(targetKernel,steps);
-
-		size_t global_offset[3] = {-2,0,0};   //left boundary
-
-		//add one extra windowX to make up for group overlap due to boundary
-	   size_t global_work_size[3] = {(divRndUp(w, windowX) + 1)* windowX, divRndUp(h, windowY * steps),1};
-	   size_t local_work_size[3] = {windowX,1,1};
-
-	  targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
-
-	}
-}
-
-
-
 template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,int steps){
 
 	cl_int error_code =  DeviceSuccess;

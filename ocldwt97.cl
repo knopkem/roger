@@ -80,8 +80,6 @@ CONSTANT float scale97Div = 1.0 / 1.23017410491400f;
 Lifting scheme consists of four steps: Predict1 Update1 Predict2 Update2
 followed by scaling (even points are scaled by scale97Div, odd points are scaled by scale97Mul)
 
-If the odd predict2 pixels are calculated first, then the even update2 pixels
-can be easily calculated.
 
 Predict Calculation:
 

@@ -28,7 +28,7 @@ public:
 	OCLDWTRev(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr);
 	~OCLDWTRev(void);
 
-	void decode(bool lossy, std::vector<T*> components,int w,	int h,int windowX, int windowY);
+	void run(bool lossy, std::vector<T*> components,int w,	int h,int windowX, int windowY);
 private:
 
 	OCLKernel* reverse53;

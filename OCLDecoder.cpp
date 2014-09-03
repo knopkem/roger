@@ -27,7 +27,7 @@ template<typename T> OCLDecoder<T>::OCLDecoder(ocl_args_d_t* ocl, bool isLossy) 
 	_ocl(ocl), 
 	lossy(isLossy),
 	memoryManager(new OCLMemoryManager<T>(ocl)),
-	dwt(new OCLDWTRev<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=128 -D WIN_SIZE_Y=8"), memoryManager))
+	dwt(new OCLDWTRev<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=8 -D WIN_SIZE_Y=128"), memoryManager))
 {
 
 }
@@ -38,9 +38,9 @@ template<typename T> OCLDecoder<T>::~OCLDecoder(){
 		delete dwt;
 }
 
-template<typename T> void OCLDecoder<T>::decode(std::vector<T*> components,int w,int h){
+template<typename T> void OCLDecoder<T>::run(std::vector<T*> components,int w,int h){
 	memoryManager->init(components,w,h,lossy);
-	dwt->decode(lossy, components, w,h, 128,8);
+	dwt->run(lossy, components, w,h, 128,8);
 }
 
 template<typename T> void OCLDecoder<T>::finish(void){

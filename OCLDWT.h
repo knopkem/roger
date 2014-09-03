@@ -27,7 +27,6 @@ public:
 	OCLDWT(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr);
 	~OCLDWT(void);
 protected:
-	void run(OCLKernel* targetKernel, bool lossy, std::vector<T*> components,	int w,	int h, int windowX, int windowY);
 	tDeviceRC setKernelArgs(OCLKernel* myKernel,int steps);
 	KernelInitInfoBase initInfo;
 	OCLMemoryManager<T>* memoryManager;

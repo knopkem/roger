@@ -136,7 +136,7 @@ template<typename T> void OCLTest<T>::testInit() {
 
 
 template<typename T> void OCLTest<T>::testRun(std::vector<T*> components,int w,int h) {
-	encoder->encode(components,w,h);
+	encoder->run(components,w,h);
 }
 
 template<typename T> void OCLTest<T>::testFinish() {

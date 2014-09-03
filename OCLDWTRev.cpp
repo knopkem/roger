@@ -39,8 +39,34 @@ template<typename T> OCLDWTRev<T>::~OCLDWTRev(void)
 		delete reverse97;
 }
 
-template<typename T> void OCLDWTRev<T>::decode(bool lossy, std::vector<T*> components,	int w,	int h, int windowX, int windowY) {
 
-	run(lossy?reverse97:reverse53, lossy, components,w,h,windowX, windowY);
+template<typename T> void OCLDWTRev<T>::run(bool lossy, std::vector<T*> components,	int w,	int h, int windowX, int windowY) {
+
+	OCLKernel* targetKernel = lossy?reverse97:reverse53;
+
+	if (components.size() == 0)
+		return;
+	memoryManager->init(components,w,h,lossy);
+	const int steps = divRndUp(h, 15 * windowX);
+	setKernelArgs(targetKernel,steps);
+	size_t local_work_size[3] = {1,windowY,1};
+
+	if (lossy) {
+
+		size_t global_offset[3] = {0,-4,0};   //top boundary
+
+		//add one extra windowX to make up for group overlap due to boundary
+	    size_t global_work_size[3] = {divRndUp(w, windowX * steps),(divRndUp(h, windowY) + 1)* windowY,1};
+	   
+	    targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
+	} else {
+		size_t global_offset[3] = {0,-2,0};   //top boundary
+
+		//add one extra windowX to make up for group overlap due to boundary
+	   size_t global_work_size[3] = {divRndUp(w, windowX * steps),(divRndUp(h, windowY) + 1)* windowY,1};
+
+	    targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
+	}
 }
+
 

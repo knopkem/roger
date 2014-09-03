@@ -26,7 +26,7 @@ template<typename T>  class OCLDecoder
 public:
 	OCLDecoder(ocl_args_d_t* ocl, bool isLossy);
 	~OCLDecoder(void);
-	void decode(std::vector<T*> components,int w,int h);
+	void run(std::vector<T*> components,int w,int h);
 	tDeviceRC mapOutput(void** mappedPtr);
 	tDeviceRC unmapOutput(void* mappedPtr);
 	void finish(void);

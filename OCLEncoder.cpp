@@ -38,9 +38,9 @@ template<typename T> OCLEncoder<T>::~OCLEncoder(){
 		delete dwt;
 }
 
-template<typename T> void OCLEncoder<T>::encode(std::vector<T*> components,int w,int h){
+template<typename T> void OCLEncoder<T>::run(std::vector<T*> components,int w,int h){
 	memoryManager->init(components,w,h,lossy);
-	dwt->encode(lossy, components, w,h, 128,8);
+	dwt->run(lossy, components, w,h, 128,8);
 }
 
 template<typename T> void OCLEncoder<T>::finish(void){

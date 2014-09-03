@@ -26,7 +26,7 @@ template<typename T>  class OCLEncoder
 public:
 	OCLEncoder(ocl_args_d_t* ocl, bool isLossy);
 	~OCLEncoder(void);
-	void encode(std::vector<T*> components,int w,int h);
+	void run(std::vector<T*> components,int w,int h);
 	tDeviceRC mapOutput(void** mappedPtr);
 	tDeviceRC unmapOutput(void* mappedPtr);
 	void finish(void);

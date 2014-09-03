@@ -28,7 +28,7 @@ public:
 	OCLDWTForward(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr);
 	~OCLDWTForward(void);
 
-	void encode(bool lossy, std::vector<T*> components,int w,	int h,int windowX, int windowY);
+	void run(bool lossy, std::vector<T*> components,int w,	int h,int windowX, int windowY);
 private:
 	OCLKernel* forward53;
 	OCLKernel* forward97;
