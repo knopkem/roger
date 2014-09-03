@@ -82,7 +82,8 @@ template<typename T> void OCLTest<T>::test()
 
 	T* input = new T[imageSize];
     for (int i = 0; i < imageSize; ++i) {
-        input[i] = (img_src.data[i]/255.0f) - 0.5f;
+        //input[i] = (img_src.data[i]/255.0f) - 0.5f;
+		input[i] = (img_src.data[i] - 128) << 2;
     }
 
 	//simulate RGB image
@@ -104,7 +105,8 @@ template<typename T> void OCLTest<T>::test()
 	T* results = getTestResults();
 	if (results) {
 		for (int i = 0; i < imageSize; ++i){
-			int temp =  (results[i] + 0.5f)*255;
+			//int temp =  (results[i] + 0.5f)*255;
+			int temp =  (results[i]>> 2) + 128;
 			if (temp < 0)
 				temp = 0;
 			if (temp > 255)
@@ -128,21 +130,21 @@ template<typename T> void OCLTest<T>::test()
 template<typename T> void OCLTest<T>::testInit() {
 	OCLDeviceManager* deviceManager = new OCLDeviceManager();
 	deviceManager->init();
-	encoder = new OCLEncoder<T>(deviceManager->getInfo(), true);
-	decoder = new OCLDecoder<T>(deviceManager->getInfo(), true);
+	encoder = new OCLEncoder<T>(deviceManager->getInfo(), false);
+	decoder = new OCLDecoder<T>(deviceManager->getInfo(), false);
 }
 
 
 template<typename T> void OCLTest<T>::testRun(std::vector<T*> components,int w,int h) {
-	decoder->decode(components,w,h);
+	encoder->encode(components,w,h);
 }
 
 template<typename T> void OCLTest<T>::testFinish() {
-	decoder->finish();
+	encoder->finish();
 }
 
 template<typename T> T* OCLTest<T>::getTestResults(){
 	void* ptr;
-	decoder->mapOutput(&ptr);
+	encoder->mapOutput(&ptr);
 	return (T*)ptr;
 }

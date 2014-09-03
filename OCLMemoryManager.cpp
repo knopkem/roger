@@ -95,7 +95,7 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 			LogError("Error: clCreateImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
 			return;
 		}
-		format.image_channel_data_type = floatingPointOnDevice ? CL_FLOAT : CL_SIGNED_INT32;
+		format.image_channel_data_type = floatingPointOnDevice ? CL_FLOAT : CL_SIGNED_INT16;
 		preprocessOut = clCreateImage (context, CL_MEM_READ_WRITE| CL_MEM_USE_HOST_PTR, &format, &desc, rgbBuffer,&error_code);
 		if (CL_SUCCESS != error_code)
 		{
