@@ -51,8 +51,8 @@ template <typename T> tDeviceRC OCLDWT<T>::copyLLBandToSrc(int LLSizeX, int LLSi
 	size_t region[] = {LLSizeX, LLSizeY, 1 };
 			
 	err = clEnqueueCopyImage  ( initInfo.cmd_queue, 	//copy command will be queued
-					*memoryManager->getPreprocessOut(),		
 					*memoryManager->getDwtOut(),		
+					*memoryManager->getPreprocessOut(),		
 					origin,	    // origin of source image
 					origin,     // origin of destination image
 					region,		//(width, height, depth) in pixels of the 2D or 3D rectangle being copied
