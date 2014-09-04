@@ -39,14 +39,42 @@ template<typename T> OCLDWT<T>::~OCLDWT(void)
 }
 
 
-template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,int steps){
+
+template <typename T> tDeviceRC OCLDWT<T>::copyLLBandToSrc(int LLSizeX, int LLSizeY)
+{
+	
+ // copy forward or reverse transformed LL band from output back into the input
+	size_t origin[] = { 0, 0, 0};
+	cl_int err = CL_SUCCESS;
+
+	// The region size in pixels
+	size_t region[] = {LLSizeX, LLSizeY, 1 };
+			
+	err = clEnqueueCopyImage  ( initInfo.cmd_queue, 	//copy command will be queued
+					*memoryManager->getPreprocessOut(),		
+					*memoryManager->getDwtOut(),		
+					origin,	    // origin of source image
+					origin,     // origin of destination image
+					region,		//(width, height, depth) in pixels of the 2D or 3D rectangle being copied
+					0,
+					NULL,
+					NULL);
+					
+	if (CL_SUCCESS != err)
+	{
+		LogError("Error: clEnqueueCopyImage (srcMem) returned %s.\n", TranslateOpenCLError(err));
+	}
+	
+	return err;
+
+}
+
+
+template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,unsigned int width, unsigned int height,int steps){
 
 	cl_int error_code =  DeviceSuccess;
 	cl_kernel targetKernel = myKernel->getKernel();
 	int argNum = 0;
-	unsigned int width = (unsigned int)memoryManager->getWidth();
-	unsigned int height = (unsigned int)memoryManager->getHeight();
-
 	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(cl_mem),  memoryManager->getPreprocessOut());
 	if (DeviceSuccess != error_code)
 	{

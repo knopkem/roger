@@ -40,7 +40,7 @@ template<typename T> OCLDecoder<T>::~OCLDecoder(){
 
 template<typename T> void OCLDecoder<T>::run(std::vector<T*> components,int w,int h){
 	memoryManager->init(components,w,h,lossy);
-	dwt->run(lossy, components, w,h, 128,8);
+	dwt->run(lossy, w,h, 128,8);
 }
 
 template<typename T> void OCLDecoder<T>::finish(void){

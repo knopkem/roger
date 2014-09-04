@@ -28,7 +28,7 @@ public:
 	void test();
 private:
 	void testInit();
-    void testRun(std::vector<T*> components,int w,int h);
+    void testRun(std::vector<T*> components,int w,int h, int levels);
 	void testFinish();
 	T* getTestResults();
 

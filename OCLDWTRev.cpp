@@ -40,15 +40,11 @@ template<typename T> OCLDWTRev<T>::~OCLDWTRev(void)
 }
 
 
-template<typename T> void OCLDWTRev<T>::run(bool lossy, std::vector<T*> components,	int w,	int h, int windowX, int windowY) {
+template<typename T> void OCLDWTRev<T>::run(bool lossy, int w,	int h, int windowX, int windowY) {
 
 	OCLKernel* targetKernel = lossy?reverse97:reverse53;
-
-	if (components.size() == 0)
-		return;
-	memoryManager->init(components,w,h,lossy);
 	const int steps = divRndUp(h, 15 * windowX);
-	setKernelArgs(targetKernel,steps);
+	setKernelArgs(targetKernel,w,h,steps);
 	size_t local_work_size[3] = {1,windowY,1};
 
 	if (lossy) {
