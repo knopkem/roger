@@ -34,7 +34,7 @@ using namespace cv;
 #define OCL_SAMPLE_IMAGE_NAME "baboon.png"
 
 
-template<typename T>  OCLTest<T>::OCLTest(void) : encoder(NULL), decoder(NULL)
+template<typename T>  OCLTest<T>::OCLTest(bool isLossy) : encoder(NULL), decoder(NULL), lossy(isLossy)
 {
 }
 
@@ -49,7 +49,6 @@ template<typename T> OCLTest<T>::~OCLTest(void)
 
 template<typename T> void OCLTest<T>::test()
 {
-
 	testInit();
 
     // Read the input image
@@ -82,8 +81,7 @@ template<typename T> void OCLTest<T>::test()
 
 	T* input = new T[imageSize];
     for (int i = 0; i < imageSize; ++i) {
-        input[i] = (img_src.data[i]/255.0f) - 0.5f;
-		//input[i] = (img_src.data[i] - 128) << 2;
+        input[i] = lossy ? ((img_src.data[i]/255.0f) - 0.5f) : ((img_src.data[i] - 128) << 2);
     }
 
 	//simulate RGB image
@@ -105,8 +103,7 @@ template<typename T> void OCLTest<T>::test()
 	T* results = getTestResults();
 	if (results) {
 		for (int i = 0; i < imageSize; ++i){
-			int temp =  (results[i] + 0.5f)*255;
-			//int temp =  (results[i]>> 2) + 128;
+			int temp =  lossy ? ((results[i] + 0.5f)*255) : ((results[i]>> 2) + 128);
 			if (temp < 0)
 				temp = 0;
 			if (temp > 255)
@@ -130,8 +127,8 @@ template<typename T> void OCLTest<T>::test()
 template<typename T> void OCLTest<T>::testInit() {
 	OCLDeviceManager* deviceManager = new OCLDeviceManager();
 	deviceManager->init();
-	encoder = new OCLEncoder<T>(deviceManager->getInfo(), true);
-	decoder = new OCLDecoder<T>(deviceManager->getInfo(), true);
+	encoder = new OCLEncoder<T>(deviceManager->getInfo(), lossy);
+	decoder = new OCLDecoder<T>(deviceManager->getInfo(), lossy);
 }
 
 
