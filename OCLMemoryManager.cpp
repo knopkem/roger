@@ -119,7 +119,7 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 
 		size_t origin[] = {0,0,0}; // Defines the offset in pixels in the image from where to write.
 		size_t region[] = {width, height, 1}; // Size of object to be transferred
-		cl_int error_code = clEnqueueWriteImage(ocl->commandQueue, preprocessOut, CL_FALSE, origin, region,0,0, rgbBuffer, 0, NULL,NULL);
+		cl_int error_code = clEnqueueWriteImage(ocl->commandQueue, preprocessOut, CL_TRUE, origin, region,0,0, rgbBuffer, 0, NULL,NULL);
 		if (CL_SUCCESS != error_code)
 		{
 			LogError("Error: clEnqueueWriteImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
