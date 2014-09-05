@@ -81,7 +81,7 @@ template<typename T> void OCLTest<T>::test()
 
 	T* input = new T[imageSize];
     for (int i = 0; i < imageSize; ++i) {
-        input[i] = lossy ? ((img_src.data[i]/255.0f) - 0.5f) : ((img_src.data[i] - 128) << 2);
+        input[i] = lossy ? ((img_src.data[i]/255.0f) - 0.5f) : ((img_src.data[i] - 128) * 4);
     }
 
 	//simulate RGB image
@@ -94,7 +94,7 @@ template<typename T> void OCLTest<T>::test()
 	double t = my_clock();
 	int numIterations = 15;
 	for (int j =0; j < numIterations; ++j) { 
-	   testRun(components, img_src.cols, img_src.rows, 3);
+	   testRun(components, img_src.cols, img_src.rows,3);
 	}
 	testFinish();
 	t = my_clock() - t;
@@ -103,7 +103,7 @@ template<typename T> void OCLTest<T>::test()
 	T* results = getTestResults();
 	if (results) {
 		for (int i = 0; i < imageSize; ++i){
-			int temp =  lossy ? ((results[i] + 0.5f)*255) : ((results[i]>> 2) + 128);
+			int temp =  lossy ? ((results[i] + 0.5f)*255) : ((results[i]/4) + 128);
 			if (temp < 0)
 				temp = 0;
 			if (temp > 255)
