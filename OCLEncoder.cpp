@@ -39,7 +39,7 @@ template<typename T> OCLEncoder<T>::~OCLEncoder(){
 }
 
 template<typename T> void OCLEncoder<T>::run(std::vector<T*> components,int w,int h, int levels){
-	memoryManager->init(components,w,h,lossy);
+	memoryManager->init(components,w,h,lossy,levels);
 	dwt->run(lossy, w,h, 128,8,levels);
 }
 

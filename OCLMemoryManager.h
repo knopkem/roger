@@ -29,16 +29,21 @@ public:
 	size_t getWidth() {return width;}
 	size_t getHeight() {return height;}
 	size_t getFrameSizeInBytes(){return width * height *sizeof(T);}
-	cl_mem* getPreprocessIn(){ return &preprocessIn;}
-	cl_mem* getPreprocessOut(){ return &preprocessOut;}
 	cl_mem* getDwtOut(){ return &dwtOut;}
-
-	void init(std::vector<T*> components, size_t w, size_t h, bool floatingPointOnDevice);
+	cl_mem* getDwtIn(int level){
+		if (level > dwtIn.size())
+			return NULL;
+		return &dwtIn[getBufferIndex(level)];
+	}
+	void init(std::vector<T*> components, size_t w, size_t h, bool floatingPointOnDevice, int levels);
 
 	tDeviceRC mapImage(cl_mem img, void** mappedPtr);
 	tDeviceRC unmapImage(cl_mem, void* mappedPtr);
 
+	tDeviceRC copyLLBandToSrc(int nextLevel, int LLSizeX, int LLSizeY);
+
 private:
+	int getBufferIndex(int level) { return dwtIn.size() - level; }
 	void fillHostInputBuffer(std::vector<T*> components, size_t w,	size_t h);
 	void freeBuffers();
 	T* rgbBuffer;
@@ -46,8 +51,8 @@ private:
 	ocl_args_d_t* ocl;
 	size_t width;
 	size_t height;
-	cl_mem preprocessIn;  // rgb
-	cl_mem preprocessOut;  // rgb
+	cl_mem preprocessIn;  
+	std::vector<cl_mem> dwtIn;  
 	cl_mem dwtOut;
 
 };

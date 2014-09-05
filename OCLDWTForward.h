@@ -28,9 +28,9 @@ public:
 	OCLDWTForward(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr);
 	~OCLDWTForward(void);
 
-	void run(bool lossy, int w,	int h,int windowX, int windowY, int levels);
+	void run(bool lossy, int w,	int h,int windowX, int windowY, int level);
 private:
-	void doRun(bool lossy, int w,	int h,int windowX, int windowY);
+	void doRun(bool lossy, int w,	int h,int windowX, int windowY, int level);
 	OCLKernel* forward53;
 	OCLKernel* forward97;
 

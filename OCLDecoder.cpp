@@ -38,8 +38,8 @@ template<typename T> OCLDecoder<T>::~OCLDecoder(){
 		delete dwt;
 }
 
-template<typename T> void OCLDecoder<T>::run(std::vector<T*> components,int w,int h){
-	memoryManager->init(components,w,h,lossy);
+template<typename T> void OCLDecoder<T>::run(std::vector<T*> components,int w,int h, int levels){
+	memoryManager->init(components,w,h,lossy, levels);
 	dwt->run(lossy, w,h, 128,8);
 }
 

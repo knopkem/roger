@@ -24,7 +24,6 @@ template<typename T> OCLMemoryManager<T>::OCLMemoryManager(ocl_args_d_t* ocl) :o
 											width(0),
 											height(0),
 											preprocessIn(0),
-											preprocessOut(0),
 											dwtOut(0)
 {
 }
@@ -51,12 +50,44 @@ template<typename T> void OCLMemoryManager<T>::fillHostInputBuffer(std::vector<T
 }
 
 
-template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,	size_t w,	size_t h, bool floatingPointOnDevice){
-	if (w <=0 || h <= 0 || components.size() == 0)
+template <typename T> tDeviceRC OCLMemoryManager<T>::copyLLBandToSrc(int nextLevel, int LLSizeX, int LLSizeY)
+{
+	
+ // copy forward or reverse transformed LL band from output back into the input
+	size_t origin[] = { 0, 0, 0};
+	cl_int err = CL_SUCCESS;
+
+	// The region size in pixels
+	size_t region[] = {LLSizeX, LLSizeY, 1 };
+			
+	err = clEnqueueCopyImage  ( ocl->commandQueue, 	//copy command will be queued
+					dwtOut,		
+					*getDwtIn(nextLevel),		
+					origin,	    // origin of source image
+					origin,     // origin of destination image
+					region,		//(width, height, depth) in pixels of the 2D or 3D rectangle being copied
+					0,
+					NULL,
+					NULL);
+					
+	if (CL_SUCCESS != err)
+	{
+		LogError("Error: clEnqueueCopyImage (srcMem) returned %s.\n", TranslateOpenCLError(err));
+	}
+	
+	return err;
+
+}
+
+
+
+template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,	size_t w,	size_t h, bool floatingPointOnDevice, int levels){
+	if (w <=0 || h <= 0 || components.size() == 0 || levels <= 0)
 		return;
 
 	if (w != width || h != height) {
-
+		width = w;
+	    height = h;
 		int numDeviceChannels = components.size() ==3 ? 4 : 1;
 		freeBuffers();
 		cl_uint align = requiredOpenCLAlignment(ocl->device);
@@ -96,13 +127,6 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 			return;
 		}
 		format.image_channel_data_type = floatingPointOnDevice ? CL_FLOAT : CL_SIGNED_INT16;
-		preprocessOut = clCreateImage (context, CL_MEM_READ_WRITE| CL_MEM_USE_HOST_PTR, &format, &desc, rgbBuffer,&error_code);
-		if (CL_SUCCESS != error_code)
-		{
-			LogError("Error: clCreateImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
-			return;
-		}
-
 		dwtOut = clCreateImage (context, CL_MEM_READ_WRITE, &format, &desc, NULL,&error_code);
 		if (CL_SUCCESS != error_code)
 		{
@@ -110,8 +134,18 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 			return;
 		}
 
-		width = w;
-	    height = h;
+		for (int i =0; i < levels; ++i) {
+			cl_mem temp = clCreateImage (context, CL_MEM_READ_WRITE| CL_MEM_USE_HOST_PTR, &format, &desc, rgbBuffer,&error_code);
+			if (CL_SUCCESS != error_code)
+			{
+				LogError("Error: clCreateImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
+				return;
+			}
+			dwtIn.push_back(temp);
+			desc.image_width = divRndUp(desc.image_width, 2);
+			desc.image_height = divRndUp(desc.image_height, 2);
+		}
+
 	} else { 
 	
 	
@@ -119,7 +153,7 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 
 		size_t origin[] = {0,0,0}; // Defines the offset in pixels in the image from where to write.
 		size_t region[] = {width, height, 1}; // Size of object to be transferred
-		cl_int error_code = clEnqueueWriteImage(ocl->commandQueue, preprocessOut, CL_TRUE, origin, region,0,0, rgbBuffer, 0, NULL,NULL);
+		cl_int error_code = clEnqueueWriteImage(ocl->commandQueue, dwtIn[0], CL_TRUE, origin, region,0,0, rgbBuffer, 0, NULL,NULL);
 		if (CL_SUCCESS != error_code)
 		{
 			LogError("Error: clEnqueueWriteImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
@@ -197,14 +231,15 @@ template<typename T> void OCLMemoryManager<T>::freeBuffers(){
 			return;
 		}
 	}
-	if (preprocessOut) {
-		error_code = clReleaseMemObject(preprocessOut);
+	for(std::vector<cl_mem>::iterator it = dwtIn.begin(); it != dwtIn.end(); ++it) {
+		error_code = clReleaseMemObject(*it);
 		if (CL_SUCCESS != error_code)
 		{
 			LogError("Error: clReleaseMemObject (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
 			return;
 		}
-	}	
+	}
+
 	if (dwtOut) {
 		error_code = clReleaseMemObject(dwtOut);
 		if (CL_SUCCESS != error_code)
