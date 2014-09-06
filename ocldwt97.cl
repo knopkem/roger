@@ -30,15 +30,15 @@
 
 Layout for scratch buffer
 
-Odd and even columns are separated. (Generates less bank conflicts when using lifting scheme.)
-All even columns are stored first, then all odd columns.
+Odd and even rows are separated. (Generates less bank conflicts when using lifting scheme.)
+All even rows are stored first, then all odd rows.
 
-Left (even) boundary column
-Even Columns
-Right (even) boundary column
-Left (odd) boundary column
-Odd Columns
-Right (odd) boundary column
+Left (even) boundary row
+Even rows
+Right (even) boundary row
+Left (odd) boundary row
+Odd rows
+Right (odd) boundary row
 
  **/
 
@@ -134,7 +134,7 @@ inline void writePixel(float4 pix, LOCAL float*  restrict  dest) {
 	*dest = pix.w;
 }
 
-// write column to destination
+// write row to destination
 void writeRowToOutput(LOCAL float* restrict currentScratch, __write_only image2d_t odata, int firstX, int outputY, int width, int halfWidth){
 
 	int2 posOut = {firstX>>1, outputY};
