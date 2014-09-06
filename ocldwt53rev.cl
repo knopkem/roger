@@ -16,6 +16,19 @@
 
 #include "ocl_platform.cl"
 
+/*
+Lossless forward 5/3 discrete wavelet transform
+
+Assumptions:
+
+1) assume WIN_SIZE_X equals the number of work items in the work group
+2) width and height are both even (will need to relax this assumption in the future)
+3) data precision is 14 bits or less
+
+*/
+
+#include "ocl_platform.cl"
+
 //////////////////////////
 // dimensions of window
 // WIN_SIZE_X	assume this equals number of work items in work group
@@ -77,12 +90,12 @@ inline int getCorrectedGlobalIdX() {
 
 
 // read pixel from local buffer
-int4 readPixel( LOCAL int*  restrict  src) {
+int4 readPixel( LOCAL short*  restrict  src) {
 	return (int4)(*src, *(src+CHANNEL_BUFFER_SIZE),  *(src+CHANNEL_BUFFER_SIZE_X2),  *(src+CHANNEL_BUFFER_SIZE_X3)) ;
 }
 
 //write pixel to column
-inline void writePixel(int4 pix, LOCAL int*  restrict  dest) {
+inline void writePixel(int4 pix, LOCAL short*  restrict  dest) {
 	*dest = pix.x;
 	dest += CHANNEL_BUFFER_SIZE;
 	*dest = pix.y;
@@ -93,7 +106,7 @@ inline void writePixel(int4 pix, LOCAL int*  restrict  dest) {
 }
 
 // write column to destination
-void writeColumnToOutput(LOCAL int* restrict currentScratch, __write_only image2d_t odata, int firstY, int inputX, int height, int halfHeight){
+void writeColumnToOutput(LOCAL short* restrict currentScratch, write_only image2d_t odata, int firstY, int inputX, int height, int halfHeight){
 
 	int2 posOut = {inputX, firstY>>1};
 	for (int j = 0; j < WIN_SIZE_Y; j+=2) {
@@ -124,7 +137,7 @@ inline int getScratchOffset(){
 
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
-void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,   
+void KERNEL run(read_only image2d_t idata, write_only image2d_t odata,   
                        const unsigned int  width, const unsigned int  height, const unsigned int steps) {
 
 	int inputX = getCorrectedGlobalIdX();
@@ -133,7 +146,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	outputX = (outputX >> 1) + (outputX & 1)*( width >> 1);
 
     const unsigned int halfHeight = height >> 1;
-	LOCAL int scratch[PIXEL_BUFFER_SIZE];
+	LOCAL short scratch[PIXEL_BUFFER_SIZE];
 	const float yDelta = 1.0/(height-1);
 	int firstY = getGlobalId(1) * (steps * WIN_SIZE_Y);
 	
@@ -152,7 +165,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 	for (int i = 0; i < steps; ++i) {
 
 		// 1. read from source image, transform columns, and store in local scratch
-		LOCAL int* currentScratch = scratch + getScratchOffset();
+		LOCAL short* currentScratch = scratch + getScratchOffset();
 		for (int j = 0; j < WIN_SIZE_Y; j+=2) {
 	   
 			///////////////////////////////////////////////////////////////////////////////////////////
@@ -169,10 +182,14 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 			int4 nextPlusOne = read_imagei(idata, sampler, posIn);
 
 			// predict next (odd)
-			next -= (current + nextPlusOne) >> 1;  // F.4, page 118, ITU-T Rec. T.800 final draft
+			// F.4, page 118, ITU-T Rec. T.800 final draft
+			next -= (current + nextPlusOne) >> 1;  
 	
 			// update current (even)
-			current += (previous + next + 2) >> 2; // F.3, page 118, ITU-T Rec. T.800 final draft
+			// F.3, page 118, ITU-T Rec. T.800 final draft
+			// note 8 = 2 << 2, which we need to do because the data is left shifted by 2
+			current += (previous + next + 8) >> 2; 
+
 	
 
 			//write current (even)
@@ -216,7 +233,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 				int4 currentEven = readPixel(currentScratch);
 				int4 prevOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_PREVIOUS_ODD);
 				int4 nextOdd = readPixel(currentScratch + HORIZONTAL_EVEN_TO_NEXT_ODD); 
-				currentEven += (prevOdd + nextOdd + 2) >> 2; 
+				currentEven += (prevOdd + nextOdd + 8) >> 2; // note 8 = 2 << 2, which we need to do because the data is left shifted by 2
 				writePixel( currentEven, currentScratch);
 				currentScratch += VERTICAL_STRIDE;
 			}
