@@ -37,12 +37,13 @@ template<typename T> OCLMemoryManager<T>::~OCLMemoryManager(void)
 
 template<typename T> void OCLMemoryManager<T>::fillHostInputBuffer(std::vector<T*> components, size_t w, size_t h){
 
-	if (components.size() == 3) {
+	if (components.size() == 4) {
 		int rgbIndex = 0;
 		for (unsigned int i = 0; i < w*h; i++) {
 			 rgbBuffer[rgbIndex++] = components[0][i];
 			 rgbBuffer[rgbIndex++] = components[1][i];
 			 rgbBuffer[rgbIndex++] = components[2][i];
+			 rgbBuffer[rgbIndex++] = components[3][i];
 		}
 	} else {
 		memcpy(rgbBuffer, components[0], w*h*sizeof(T));
@@ -88,7 +89,7 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 	if (w != width || h != height) {
 		width = w;
 	    height = h;
-		int numDeviceChannels = components.size() ==3 ? 4 : 1;
+		int numDeviceChannels = components.size();
 		freeBuffers();
 		cl_uint align = requiredOpenCLAlignment(ocl->device);
 		rgbBuffer = (T*)aligned_malloc(w*h*sizeof(T) * numDeviceChannels, 4*1024);

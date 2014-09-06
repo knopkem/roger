@@ -87,9 +87,9 @@ template<typename T> void OCLTest<T>::test()
 	//simulate RGB image
 	std::vector<T*> components;
 	components.push_back(input);
-	//components.push_back(input);
-	//components.push_back(input);
-
+	components.push_back(input);
+	components.push_back(input);
+	components.push_back(input);
 
 	double t = my_clock();
 	int numIterations = 15;
@@ -102,13 +102,15 @@ template<typename T> void OCLTest<T>::test()
 
 	T* results = getTestResults();
 	if (results) {
+		int resultsIndex=0;
 		for (int i = 0; i < imageSize; ++i){
-			int temp =  lossy ? ((results[i] + 0.5f)*255) : ((results[i]/4) + 128);
+			int temp =  lossy ? ((results[resultsIndex] + 0.5f)*255) : ((results[resultsIndex]/4) + 128);
 			if (temp < 0)
 				temp = 0;
 			if (temp > 255)
 				temp = 255;
 			img_dst.data[i] = temp;
+			resultsIndex+=4;
 
 		}
 
