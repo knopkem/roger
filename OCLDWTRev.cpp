@@ -43,25 +43,22 @@ template<typename T> OCLDWTRev<T>::~OCLDWTRev(void)
 template<typename T> void OCLDWTRev<T>::run(bool lossy, int w,	int h, int windowX, int windowY) {
 
 	OCLKernel* targetKernel = lossy?reverse97:reverse53;
-	const int steps = divRndUp(h, 15 * windowX);
-	setKernelArgs(targetKernel,w,h,steps);
-	size_t local_work_size[3] = {1,windowY,1};
-
+	const int steps = divRndUp(h, 15 * windowY);
+	setKernelArgs(targetKernel,w,h,steps,level);
+    size_t local_work_size[3] = {windowX,1,1};
 	if (lossy) {
-
-		size_t global_offset[3] = {0,-4,0};   //top boundary
+		size_t global_offset[3] = {-4,0,0};   //left boundary
 
 		//add one extra windowX to make up for group overlap due to boundary
-	    size_t global_work_size[3] = {divRndUp(w, windowX * steps),(divRndUp(h, windowY) + 1)* windowY,1};
-	   
-	    targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
+	   size_t global_work_size[3] = {(divRndUp(w, windowX) + 1)* windowX, divRndUp(h, windowY * steps),1};
+	   targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
+
 	} else {
-		size_t global_offset[3] = {0,-2,0};   //top boundary
+		size_t global_offset[3] = {-2,0,0};   //left boundary
 
 		//add one extra windowX to make up for group overlap due to boundary
-	   size_t global_work_size[3] = {divRndUp(w, windowX * steps),(divRndUp(h, windowY) + 1)* windowY,1};
-
-	    targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
+	   size_t global_work_size[3] = {(divRndUp(w, windowX) + 1)* windowX, divRndUp(h, windowY * steps),1};
+	   targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
 	}
 }
 

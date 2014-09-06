@@ -41,21 +41,21 @@ template<typename T> OCLDWTForward<T>::~OCLDWTForward(void)
 template<typename T> void OCLDWTForward<T>::doRun(bool lossy, int w, int h, int windowX, int windowY, int level) {
 
 	OCLKernel* targetKernel = lossy?forward97:forward53;
-	const int steps = divRndUp(h, 15 * windowY);
+	const int steps = divRndUp(w, 15 * windowX);
 	setKernelArgs(targetKernel,w,h,steps,level);
-    size_t local_work_size[3] = {windowX,1,1};
+    size_t local_work_size[3] = {1,windowY,1};
 	if (lossy) {
-		size_t global_offset[3] = {-4,0,0};   //left boundary
+		size_t global_offset[3] = {0,-4,0};   //left boundary
 
-		//add one extra windowX to make up for group overlap due to boundary
-	   size_t global_work_size[3] = {(divRndUp(w, windowX) + 1)* windowX, divRndUp(h, windowY * steps),1};
+		//add one extra windowY to make up for group overlap due to boundary
+	   size_t global_work_size[3] = {divRndUp(w, windowX * steps), (divRndUp(h, windowY) + 1)* windowY,1};
 	   targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
 
 	} else {
-		size_t global_offset[3] = {-2,0,0};   //left boundary
+		size_t global_offset[3] = {0,-2,0};   //left boundary
 
-		//add one extra windowX to make up for group overlap due to boundary
-	   size_t global_work_size[3] = {(divRndUp(w, windowX) + 1)* windowX, divRndUp(h, windowY * steps),1};
+		//add one extra windowY to make up for group overlap due to boundary
+	   size_t global_work_size[3] = {divRndUp(w, windowX * steps), (divRndUp(h, windowY) + 1)* windowY,1};
 	   targetKernel->enqueue(2,global_offset, global_work_size, local_work_size);
 	}
 

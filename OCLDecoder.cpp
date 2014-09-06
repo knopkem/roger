@@ -27,7 +27,7 @@ template<typename T> OCLDecoder<T>::OCLDecoder(ocl_args_d_t* ocl, bool isLossy) 
 	_ocl(ocl), 
 	lossy(isLossy),
 	memoryManager(new OCLMemoryManager<T>(ocl)),
-	dwt(new OCLDWTRev<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=8 -D WIN_SIZE_Y=128"), memoryManager))
+	dwt(new OCLDWTRev<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=128 -D WIN_SIZE_Y=8"), memoryManager))
 {
 
 }

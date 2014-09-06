@@ -92,7 +92,7 @@ template<typename T> void OCLTest<T>::test()
 	components.push_back(input);
 	 
 	//dont time the first run
-	testRun(components, img_src.cols, img_src.rows,3);
+	testRun(components, img_src.cols, img_src.rows,1);
 
 	double t = my_clock();
 	int numIterations = 40;
