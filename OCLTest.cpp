@@ -90,11 +90,14 @@ template<typename T> void OCLTest<T>::test()
 	components.push_back(input);
 	components.push_back(input);
 	components.push_back(input);
+	 
+	//dont time the first run
+	testRun(components, img_src.cols, img_src.rows,3);
 
 	double t = my_clock();
-	int numIterations = 15;
+	int numIterations = 40;
 	for (int j =0; j < numIterations; ++j) { 
-	   testRun(components, img_src.cols, img_src.rows,3);
+	   testRun(components, img_src.cols, img_src.rows,1);
 	}
 	testFinish();
 	t = my_clock() - t;
@@ -110,7 +113,7 @@ template<typename T> void OCLTest<T>::test()
 			if (temp > 255)
 				temp = 255;
 			img_dst.data[i] = temp;
-			resultsIndex+=4;
+			resultsIndex+=components.size();
 
 		}
 
