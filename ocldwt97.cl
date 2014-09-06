@@ -278,7 +278,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 		
 		localMemoryFence();
-		// P2 - odd columns (skip left three boundary columns and all right boundary columns)
+		// P2 - predict odd columns (skip left three boundary columns and all right boundary columns)
 		if ( (getLocalId(0)&1) && (getLocalId(0) >= BOUNDARY_X-1) && (getLocalId(0) < WIN_SIZE_X-BOUNDARY_X) ) {
 			for (int j = 0; j < WIN_SIZE_Y; j++) {
 				float4 minusOne = readPixel(currentScratch -1);
@@ -315,11 +315,14 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 				float4 current_U1 = current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo);
 
-				writePixel(plusOne + P1*(current + plusTwo) +
+				// write P2
+				writePixel( scale97Mul*(plusOne + P1*(current + plusTwo) +
 		         				      P2*(current_U1 + plusTwo + U1*(plusOne + plusThree) +
-									  U1P1*(current + 2*plusTwo + plusFour)  ),
+									  U1P1*(current + 2*plusTwo + plusFour)  )),
 									  currentScratch);
+				// write U1, for use by even loop
 				writePixel(current_U1, currentScratch + HORIZONTAL_ODD_TO_PREVIOUS_EVEN);
+
 				currentScratch += VERTICAL_STRIDE;
 			}
 		}
@@ -327,7 +330,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 
 		currentScratch = scratch + getScratchOffset();	
 		localMemoryFence();
-		//U2 - even columns (skip left and right boundary columns)
+		//U2 - update even columns (skip left and right boundary columns)
 		if ( !(getLocalId(0)&1) && (getLocalId(0) >= BOUNDARY_X) && (getLocalId(0) < WIN_SIZE_X-BOUNDARY_X)  ) {
 			for (int j = 0; j < WIN_SIZE_Y; j++) {
 
@@ -356,8 +359,8 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,
 				currentScratch -= CHANNEL_BUFFER_SIZE_X3;
 				//////////////////////////////////////////////////////////////////
 
-
-				writePixel(current + U2*(prevOdd + nextOdd), currentScratch);
+				// write U2
+				writePixel( scale97Div*(current + U2*(prevOdd + nextOdd)), currentScratch);
 				currentScratch += VERTICAL_STRIDE;
 			}
 		}
