@@ -149,7 +149,7 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 
 	} else { 
 	
-	/*
+	
 		fillHostInputBuffer(components,width,height);
 
 		size_t origin[] = {0,0,0}; // Defines the offset in pixels in the image from where to write.
@@ -160,7 +160,7 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 			LogError("Error: clEnqueueWriteImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
 			return;
 		}
-		*/
+		
 	}
 
 }
