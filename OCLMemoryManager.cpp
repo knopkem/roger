@@ -136,7 +136,7 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 		}
 
 		for (int i =0; i < levels; ++i) {
-			cl_mem temp = clCreateImage (context, CL_MEM_READ_WRITE| CL_MEM_USE_HOST_PTR, &format, &desc, rgbBuffer,&error_code);
+			cl_mem temp = clCreateImage (context, CL_MEM_READ_WRITE, &format, &desc, NULL,&error_code);
 			if (CL_SUCCESS != error_code)
 			{
 				LogError("Error: clCreateImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
@@ -147,21 +147,24 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 			desc.image_height = divRndUp(desc.image_height, 2);
 		}
 
-	} else { 
-	
-	
-		fillHostInputBuffer(components,width,height);
+		hostToDWTIn();
 
+	} else { 
+		fillHostInputBuffer(components,width,height);
+		hostToDWTIn();		
+	}
+
+}
+
+template<typename T> tDeviceRC OCLMemoryManager<T>::hostToDWTIn() {
 		size_t origin[] = {0,0,0}; // Defines the offset in pixels in the image from where to write.
 		size_t region[] = {width, height, 1}; // Size of object to be transferred
 		cl_int error_code = clEnqueueWriteImage(ocl->commandQueue, dwtIn[0], CL_TRUE, origin, region,0,0, rgbBuffer, 0, NULL,NULL);
 		if (CL_SUCCESS != error_code)
 		{
 			LogError("Error: clEnqueueWriteImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
-			return;
 		}
-		
-	}
+		return error_code;
 
 }
 

@@ -93,13 +93,14 @@ template<typename T> void OCLTest<T>::test()
 	 
 	//dont time the first run
 	testRun(components, img_src.cols, img_src.rows,1);
+	testFinish();
 
 	double t = my_clock();
 	int numIterations = 40;
 	for (int j =0; j < numIterations; ++j) { 
 	   testRun(components, img_src.cols, img_src.rows,1);
+	   testFinish();
 	}
-	testFinish();
 	t = my_clock() - t;
 	fprintf(stdout, "encode time: %d micro seconds \n", (int)((t * 1000000)/numIterations));
 
