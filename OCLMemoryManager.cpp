@@ -23,7 +23,6 @@ template<typename T> OCLMemoryManager<T>::OCLMemoryManager(ocl_args_d_t* ocl) :o
 	                                        rgbBuffer(NULL),
 											width(0),
 											height(0),
-											preprocessIn(0),
 											dwtOut(0)
 {
 }
@@ -120,13 +119,6 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 
 		cl_image_format format;
 		format.image_channel_order = numDeviceChannels == 4 ? CL_RGBA : CL_R;
-		format.image_channel_data_type = CL_UNSIGNED_INT16;
-		preprocessIn = clCreateImage (context, CL_MEM_READ_ONLY, &format, &desc,	NULL,	&error_code);
-		if (CL_SUCCESS != error_code)
-		{
-			LogError("Error: clCreateImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
-			return;
-		}
 		format.image_channel_data_type = floatingPointOnDevice ? CL_FLOAT : CL_SIGNED_INT16;
 		dwtOut = clCreateImage (context, CL_MEM_READ_WRITE, &format, &desc, NULL,&error_code);
 		if (CL_SUCCESS != error_code)
@@ -227,14 +219,6 @@ template<typename T> void OCLMemoryManager<T>::freeBuffers(){
 		return;
 	}
 	// release old buffers
-	if (preprocessIn) {
-		error_code = clReleaseMemObject(preprocessIn);
-		if (CL_SUCCESS != error_code)
-		{
-			LogError("Error: clReleaseMemObject (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
-			return;
-		}
-	}
 	for(std::vector<cl_mem>::iterator it = dwtIn.begin(); it != dwtIn.end(); ++it) {
 		error_code = clReleaseMemObject(*it);
 		if (CL_SUCCESS != error_code)

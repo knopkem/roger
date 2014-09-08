@@ -52,7 +52,7 @@ private:
 	ocl_args_d_t* ocl;
 	size_t width;
 	size_t height;
-	cl_mem preprocessIn;  
+ 
 	std::vector<cl_mem> dwtIn;  
 	cl_mem dwtOut;
 
