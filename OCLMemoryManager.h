@@ -28,7 +28,7 @@ public:
 	~OCLMemoryManager(void);
 	size_t getWidth() {return width;}
 	size_t getHeight() {return height;}
-	size_t getFrameSizeInBytes(){return width * height *sizeof(T);}
+	int    getNumLevels() {return _levels;}
 	cl_mem* getDwtOut(){ return &dwtOut;}
 	cl_mem* getDwtIn(int level){
 		if (level > dwtIn.size())
@@ -52,6 +52,7 @@ private:
 	ocl_args_d_t* ocl;
 	size_t width;
 	size_t height;
+	int _levels;
  
 	std::vector<cl_mem> dwtIn;  
 	cl_mem dwtOut;

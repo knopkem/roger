@@ -23,6 +23,7 @@ template<typename T> OCLMemoryManager<T>::OCLMemoryManager(ocl_args_d_t* ocl) :o
 	                                        rgbBuffer(NULL),
 											width(0),
 											height(0),
+											_levels(0),
 											dwtOut(0)
 {
 }
@@ -85,9 +86,10 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 	if (w <=0 || h <= 0 || components.size() == 0 || levels <= 0)
 		return;
 
-	if (w != width || h != height) {
+	if (w != width || h != height || levels != _levels) {
 		width = w;
 	    height = h;
+		_levels = levels;
 		int numDeviceChannels = components.size();
 		freeBuffers();
 		cl_uint align = requiredOpenCLAlignment(ocl->device);
