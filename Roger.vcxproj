@@ -128,7 +128,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(INTELOCLSDKROOT)include;c:\bin\boost;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>__x86_64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <Optimization>Disabled</Optimization>
       <MinimalRebuild>true</MinimalRebuild>
@@ -139,7 +139,7 @@
       <PrecompiledHeader />
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(INTELOCLSDKROOT)lib\x64;C:\bin\opencv\build\x64\vc11\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(INTELOCLSDKROOT)lib\x64;C:\bin\opencv\build\x64\vc11\lib;C:\bin\boost\lib64-msvc-11.0;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>OpenCL.lib;opencv_core249d.lib;opencv_imgproc249d.lib;opencv_highgui249d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
@@ -164,7 +164,9 @@
     <Intel_OpenCL_Build_Rules Include="ocl_platform.cl" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="concurrent_queue.h" />
     <ClInclude Include="OCLBasic.h" />
+    <ClInclude Include="OCLDataManager.h" />
     <ClInclude Include="OCLDecoder.h" />
     <ClInclude Include="OCLDeviceManager.h" />
     <ClInclude Include="OCLDWT.h" />
@@ -181,6 +183,7 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="OCLBasic.cpp" />
+    <ClCompile Include="OCLDataManager.cpp" />
     <ClCompile Include="OCLDecoder.cpp" />
     <ClCompile Include="OCLDeviceManager.cpp" />
     <ClCompile Include="OCLDWT.cpp" />
