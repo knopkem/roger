@@ -64,12 +64,12 @@ template<typename T> void OCLDWTForward<T>::doRun(bool lossy, int w, int h, int 
 template<typename T> void OCLDWTForward<T>::run(bool lossy, int w,	int h, int windowX, int windowY, int level, int levels) {
 
 	doRun(lossy, w,h,windowX, windowY,level,levels);
-	if(level > 1) {
+	if(level < levels-1) {
       // copy output's LL band back into input buffer
       const int llSizeX = divRndUp(w, 2);
       const int llSizeY = divRndUp(h, 2);
 
-	  level--;
+	  level++;
 	  
 	  tDeviceRC err = memoryManager->copyLLBandToSrc(level, llSizeX, llSizeY);
 	  if (err != DeviceSuccess)

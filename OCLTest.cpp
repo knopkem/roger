@@ -90,15 +90,17 @@ template<typename T> void OCLTest<T>::test()
 	components.push_back(input);
 	components.push_back(input);
 	components.push_back(input);
+
+	int levels = 2;
 	 
 	//dont time the first run
-	testRun(components, img_src.cols, img_src.rows,1);
+	testRun(components, img_src.cols, img_src.rows,levels);
 	testFinish();
 
 	double t = my_clock();
 	int numIterations = 40;
 	for (int j =0; j < numIterations; ++j) { 
-	   testRun(components, img_src.cols, img_src.rows,1);
+	   testRun(components, img_src.cols, img_src.rows,levels);
 	   testFinish();
 	}
 	t = my_clock() - t;

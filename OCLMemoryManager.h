@@ -31,9 +31,9 @@ public:
 	int    getNumLevels() {return _levels;}
 	cl_mem* getDwtOut(){ return &dwtOut;}
 	cl_mem* getDwtIn(int level){
-		if (level > dwtIn.size())
+		if (level >= dwtIn.size())
 			return NULL;
-		return &dwtIn[getBufferIndex(level)];
+		return &dwtIn[level];
 	}
 	void init(std::vector<T*> components, size_t w, size_t h, bool floatingPointOnDevice, int levels);
 
@@ -44,7 +44,6 @@ public:
 
 private:
 	tDeviceRC hostToDWTIn();
-	int getBufferIndex(int level) { return dwtIn.size() - level; }
 	void fillHostInputBuffer(std::vector<T*> components, size_t w,	size_t h);
 	void freeBuffers();
 	T* rgbBuffer;

@@ -219,7 +219,7 @@ inline int getScratchOffset(){
 
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
-void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,   
+void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata, __write_only image2d_t odataLL,
                        const unsigned int  width, const unsigned int  height, const unsigned int steps,
 									 const unsigned int  level, const unsigned int levels) {
 

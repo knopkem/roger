@@ -39,7 +39,10 @@ template<typename T> OCLDWT<T>::~OCLDWT(void)
 }
 
 
+/**
+A note about resolution levels: For a transform with N resolution levels, resolution levels run from 0 up to N-1.
 
+**/
 
 template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,unsigned int width, unsigned int height,int steps, int level, int levels){
 
@@ -59,6 +62,17 @@ template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,unsi
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
 		return error_code;
 	}
+	cl_mem* outLL = memoryManager->getDwtOut();
+    if (level != levels-1)
+		outLL =  memoryManager->getDwtIn(level);
+
+	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(outLL), outLL);
+	if (DeviceSuccess != error_code)
+	{
+		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
+		return error_code;
+	}
+
 	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(width), &width);
 	if (DeviceSuccess != error_code)
 	{
