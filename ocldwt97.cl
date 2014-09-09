@@ -227,10 +227,6 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata, __wri
 	if (inputY < height && inputY >= 0)
 	    outputY = (inputY >> 1) + (inputY & 1)*( height >> 1);
 
-    //odd rows or even rows with odd columns are written to odata
-	if (inputY&1)
-	   odataLL = odata;
-
 	bool writeRow = ((getLocalId(1) >= BOUNDARY_Y) && ( getLocalId(1) < WIN_SIZE_Y - BOUNDARY_Y) && outputY != -1);
 	bool doP2 = (getLocalId(1)&1) && (getLocalId(1) >= BOUNDARY_Y-1) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y);
 	bool doU2 = !(getLocalId(1)&1) && (getLocalId(1) >= BOUNDARY_Y) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y) ;
@@ -432,7 +428,10 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata, __wri
 		//5. write local buffer column to destination image
 		// (only write non-boundary columns that are within the image bounds)
 		if (writeRow) {
-			writeRowToOutput(scratch + getScratchOffset(), odata, odataLL, firstX, outputY, width, halfWidth);
+		   if (inputY &1)
+			   writeRowToOutput(scratch + getScratchOffset(), odata, odata, firstX, outputY, width, halfWidth);
+			else
+			 writeRowToOutput(scratch + getScratchOffset(), odata, odataLL, firstX, outputY, width, halfWidth);
 
 		}
 		// move to next step 
