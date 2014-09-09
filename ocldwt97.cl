@@ -228,8 +228,12 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata, __wri
 	    outputY = (inputY >> 1) + (inputY & 1)*( height >> 1);
 
 	bool writeRow = ((getLocalId(1) >= BOUNDARY_Y) && ( getLocalId(1) < WIN_SIZE_Y - BOUNDARY_Y) && outputY != -1);
-	bool doP2 = (getLocalId(1)&1) && (getLocalId(1) >= BOUNDARY_Y-1) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y);
-	bool doU2 = !(getLocalId(1)&1) && (getLocalId(1) >= BOUNDARY_Y) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y) ;
+	bool doP2 = false;
+	bool doU2 = false;
+	if (getLocalId(1)&1)
+		doP2 = (getLocalId(1) >= BOUNDARY_Y-1) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y);
+	else
+		doU2 = (getLocalId(1) >= BOUNDARY_Y) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y) ;
 
     const unsigned int halfWidth = width >> 1;
 	LOCAL float scratch[PIXEL_BUFFER_SIZE];

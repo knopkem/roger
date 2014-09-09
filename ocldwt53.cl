@@ -107,7 +107,7 @@ inline void writePixel(int4 pix, LOCAL short*  restrict  dest) {
 }
 
 // write row to destination
-void writeRowToOutput(LOCAL short* restrict currentScratch, __write_only image2d_t odata, int firstX, int outputY, int width, int halfWidth){
+void writeRowToOutput(LOCAL short* restrict currentScratch, __write_only image2d_t odata,  __write_only image2d_t odataLL, int firstX, int outputY, int width, int halfWidth){
 
 	int2 posOut = {firstX>>1, outputY};
 	for (int j = 0; j < WIN_SIZE_X; j+=2) {
@@ -118,7 +118,7 @@ void writeRowToOutput(LOCAL short* restrict currentScratch, __write_only image2d
 	    if (posOut.x >= halfWidth)
 			break;
 
-		write_imagei(odata, posOut,readPixel(currentScratch));
+		write_imagei(odataLL, posOut,readPixel(currentScratch));
 
 		// odd row
 		currentScratch += HORIZONTAL_STRIDE ;
@@ -139,16 +139,27 @@ inline int getScratchOffset(){
 
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
-void KERNEL run(read_only image2d_t idata, write_only image2d_t odata,   
-                       const unsigned int  width, const unsigned int  height, const unsigned int steps) {
+void KERNEL run(read_only image2d_t idata, write_only image2d_t odata,  __write_only image2d_t odataLL,
+                       const unsigned int  width, const unsigned int  height, const unsigned int steps,
+							const unsigned int  level, const unsigned int levels) {
 
 	int inputY = getCorrectedGlobalIdY();
-	int outputY = (inputY >> 1) + (inputY & 1)*( height >> 1);
+	int outputY = -1;
+	if (inputY < height && inputY >= 0)
+	    outputY = (inputY >> 1) + (inputY & 1)*( height >> 1);
 
     const unsigned int halfWidth = width >> 1;
 	LOCAL short scratch[PIXEL_BUFFER_SIZE];
 	const float xDelta = 1.0/(width-1);
 	int firstX = getGlobalId(0) * (steps * WIN_SIZE_X);
+
+	bool doP = false;
+	bool doU = false;
+	if (getLocalId(1)&1)
+		doP = getLocalId(1) != WIN_SIZE_Y-1;
+	 else
+	    doU = (getLocalId(1) != 0) && (getLocalId(1) != WIN_SIZE_Y-2);
+	bool writeRow = (getLocalId(1) >= BOUNDARY_Y) && ( getLocalId(1) < WIN_SIZE_Y - BOUNDARY_Y) && outputY != -1;
 	
 	//0. Initialize: fetch first pixel (and 2 top boundary pixels)
 
@@ -214,7 +225,7 @@ void KERNEL run(read_only image2d_t idata, write_only image2d_t odata,
 		
 		localMemoryFence();
 		//odd columns (skip right odd boundary column)
-		if ( (getLocalId(1)&1) && (getLocalId(1) != WIN_SIZE_Y-1) ) {
+		if ( doP) {
 			for (int j = 0; j < WIN_SIZE_X; j++) {
 				int4 currentOdd = readPixel(currentScratch);
 				int4 prevEven = readPixel(currentScratch + VERTICAL_ODD_TO_PREVIOUS_EVEN);
@@ -228,7 +239,7 @@ void KERNEL run(read_only image2d_t idata, write_only image2d_t odata,
 		currentScratch = scratch + getScratchOffset();	
 		localMemoryFence();
 		//even columns (skip left and right even boundary columns)
-		if ( !(getLocalId(1)&1) && (getLocalId(1) != 0) && (getLocalId(1) != WIN_SIZE_Y-2)  ) {
+		if ( doU  ) {
 			for (int j = 0; j < WIN_SIZE_X; j++) {
 				int4 currentEven = readPixel(currentScratch);
 				int4 prevOdd = readPixel(currentScratch + VERTICAL_EVEN_TO_PREVIOUS_ODD);
@@ -242,8 +253,11 @@ void KERNEL run(read_only image2d_t idata, write_only image2d_t odata,
 
 		//5. write local buffer column to destination image
 		// (only write non-boundary columns that are within the image bounds)
-		if ((getLocalId(1) >= BOUNDARY_Y) && ( getLocalId(1) < WIN_SIZE_Y - BOUNDARY_Y) && (inputY < height) && inputY >= 0) {
-			writeRowToOutput(scratch + getScratchOffset(), odata, firstX, outputY, width, halfWidth);
+		if (writeRow) {
+			 if (inputY &1)
+			   writeRowToOutput(scratch + getScratchOffset(), odata, odata, firstX, outputY, width, halfWidth);
+			else
+			   writeRowToOutput(scratch + getScratchOffset(), odata, odataLL, firstX, outputY, width, halfWidth);
 
 		}
 		// move to next step 
