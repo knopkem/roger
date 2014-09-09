@@ -91,7 +91,7 @@ template<typename T> void OCLTest<T>::test()
 	components.push_back(input);
 	components.push_back(input);
 
-	int levels = 2;
+	int levels = 3;
 	 
 	//dont time the first run
 	testRun(components, img_src.cols, img_src.rows,levels);

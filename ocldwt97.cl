@@ -188,20 +188,19 @@ inline void writePixel(float4 pix, LOCAL float*  restrict  dest) {
 }
 
 // write row to destination
-void writeRowToOutput(LOCAL float* restrict currentScratch, __write_only image2d_t odata, int firstX, int outputY, int width, int halfWidth){
+void writeRowToOutput(LOCAL float* restrict currentScratch, __write_only image2d_t odata, __write_only image2d_t odataLL, int firstX, int outputY, int width, int halfWidth){
 
 	int2 posOut = {firstX>>1, outputY};
 	for (int j = 0; j < WIN_SIZE_X; j+=2) {
 	
-	    // even row
-		
+	    // even column
 		//only need to check evens, since even point will be the first out of bound point
 	    if (posOut.x >= halfWidth)
 			break;
 
-		write_imagef(odata, posOut,scale97Div * readPixel(currentScratch));
+		write_imagef(odataLL, posOut,scale97Div * readPixel(currentScratch));
 
-		// odd row
+		// odd column
 		currentScratch += HORIZONTAL_STRIDE ;
 		posOut.x+= halfWidth;
 
@@ -224,7 +223,17 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata, __wri
 									 const unsigned int  level, const unsigned int levels) {
 
 	int inputY = getCorrectedGlobalIdY();
-	int outputY = (inputY >> 1) + (inputY & 1)*( height >> 1);
+	int outputY = -1;
+	if (inputY < height && inputY >= 0)
+	    outputY = (inputY >> 1) + (inputY & 1)*( height >> 1);
+
+    //odd rows or even rows with odd columns are written to odata
+	if (inputY&1)
+	   odataLL = odata;
+
+	bool writeRow = ((getLocalId(1) >= BOUNDARY_Y) && ( getLocalId(1) < WIN_SIZE_Y - BOUNDARY_Y) && outputY != -1);
+	bool doP2 = (getLocalId(1)&1) && (getLocalId(1) >= BOUNDARY_Y-1) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y);
+	bool doU2 = !(getLocalId(1)&1) && (getLocalId(1) >= BOUNDARY_Y) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y) ;
 
     const unsigned int halfWidth = width >> 1;
 	LOCAL float scratch[PIXEL_BUFFER_SIZE];
@@ -331,7 +340,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata, __wri
 		
 		localMemoryFence();
 		// P2 - predict odd columns (skip left three boundary columns and all right boundary columns)
-		if ( (getLocalId(1)&1) && (getLocalId(1) >= BOUNDARY_Y-1) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y) ) {
+		if ( doP2 ) {
 			for (int j = 0; j < WIN_SIZE_X; j++) {
 				float4 minusOne = readPixel(currentScratch -1);
 				float4 plusOne = readPixel(currentScratch);
@@ -383,7 +392,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata, __wri
 		currentScratch = scratch + getScratchOffset();	
 		localMemoryFence();
 		//U2 - update even columns (skip left and right boundary columns)
-		if ( !(getLocalId(1)&1) && (getLocalId(1) >= BOUNDARY_Y) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y)  ) {
+		if ( doU2 ) {
 			for (int j = 0; j < WIN_SIZE_X; j++) {
 
 				float4 current = readPixel(currentScratch);
@@ -422,8 +431,8 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata, __wri
 
 		//5. write local buffer column to destination image
 		// (only write non-boundary columns that are within the image bounds)
-		if ((getLocalId(1) >= BOUNDARY_Y) && ( getLocalId(1) < WIN_SIZE_Y - BOUNDARY_Y) && (inputY < height) && inputY >= 0) {
-			writeRowToOutput(scratch + getScratchOffset(), odata, firstX, outputY, width, halfWidth);
+		if (writeRow) {
+			writeRowToOutput(scratch + getScratchOffset(), odata, odataLL, firstX, outputY, width, halfWidth);
 
 		}
 		// move to next step 

@@ -71,10 +71,6 @@ template<typename T> void OCLDWTForward<T>::run(bool lossy, int w,	int h, int wi
 
 	  level++;
 	  
-	  tDeviceRC err = memoryManager->copyLLBandToSrc(level, llSizeX, llSizeY);
-	  if (err != DeviceSuccess)
-		  return;  
-      
       // run remaining levels of FDWT
       run(lossy, llSizeX, llSizeY, windowX, windowY, level,levels);
     }
