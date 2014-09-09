@@ -38,11 +38,11 @@ template<typename T> OCLDWTForward<T>::~OCLDWTForward(void)
 		delete forward97;
 }
 
-template<typename T> void OCLDWTForward<T>::doRun(bool lossy, int w, int h, int windowX, int windowY, int level) {
+template<typename T> void OCLDWTForward<T>::doRun(bool lossy, int w, int h, int windowX, int windowY, int level, int levels) {
 
 	OCLKernel* targetKernel = lossy?forward97:forward53;
 	const int steps = divRndUp(w, 15 * windowX);
-	setKernelArgs(targetKernel,w,h,steps,level);
+	setKernelArgs(targetKernel,w,h,steps,level, levels);
     size_t local_work_size[3] = {1,windowY,1};
 	if (lossy) {
 		size_t global_offset[3] = {0,-4,0};   //left boundary
@@ -61,9 +61,9 @@ template<typename T> void OCLDWTForward<T>::doRun(bool lossy, int w, int h, int 
 
 }
 
-template<typename T> void OCLDWTForward<T>::run(bool lossy, int w,	int h, int windowX, int windowY, int level) {
+template<typename T> void OCLDWTForward<T>::run(bool lossy, int w,	int h, int windowX, int windowY, int level, int levels) {
 
-	doRun(lossy, w,h,windowX, windowY,level);
+	doRun(lossy, w,h,windowX, windowY,level,levels);
 	if(level > 1) {
       // copy output's LL band back into input buffer
       const int llSizeX = divRndUp(w, 2);
@@ -76,6 +76,6 @@ template<typename T> void OCLDWTForward<T>::run(bool lossy, int w,	int h, int wi
 		  return;  
       
       // run remaining levels of FDWT
-      run(lossy, llSizeX, llSizeY, windowX, windowY, level);
+      run(lossy, llSizeX, llSizeY, windowX, windowY, level,levels);
     }
 }

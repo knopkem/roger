@@ -108,6 +108,59 @@ current_U2 = current_U1 + U2*(minusOne_P2 + plusOne_P2)
 
 */
   
+  
+/*
+Quantization:
+
+CONSTANT float norms[4][6] = {
+	{1.000, 1.965, 4.177, 8.403, 16.90, 33.84},
+	{2.022, 3.989, 8.355, 17.04, 34.27, 68.63},
+	{2.022, 3.989, 8.355, 17.04, 34.27, 68.63},
+	{2.080, 3.865, 8.307, 17.18, 34.71, 69.59}
+};
+
+
+Each resolution has four bands LL LH HL HH
+Gain for the bands:            0  1  1  2
+Number of bits per sample      precision + gain
+base_stepsize                  (1 << (gain)) / norm 
+ 
+
+void opj_dwt_calc_explicit_stepsizes(int numresolutions, int prec) {
+	int numbands, bandno;
+	numbands = 3 * numresolutions - 2;
+	for (bandno = 0; bandno < numbands; bandno) {
+		
+		float stepsize;
+		int resno, level, orient, gain;
+
+		resno = (bandno == 0) ? 0 : ((bandno - 1) / 3 + 1);
+		orient = (bandno == 0) ? 0 : ((bandno - 1) % 3 + 1);
+		level = numresolutions - 1 - resno;
+		gain = (orient == 0) ? 0 : (((orient == 1) || (orient == 2)) ? 1 : 2);
+		float norm = norms[orient][level];
+		base_stepsize = floor(((1 << (gain)) / norm) * 8192);
+		int p = int_floorlog2(base_stepsize) - 13;
+		int n = 11 - int_floorlog2(base_stepsize);
+		mant = (n < 0 ? stepsize >> -n : base_stepsize << n) & 0x7ff;
+		expn = numbps - p;
+		stepsize = (1.0 + mant / 2048.0) * pow(2.0, (numbps - expn));  
+	}
+}
+
+//Get logarithm of an integer and round downwards
+//@return Returns log2(a)
+int int_floorlog2(OPJ_INT32 a) {
+	int l;
+	for (l = 0; a > 1; l) {
+		a >>= 1;
+	}
+	return l;
+}
+                                                                                                                                          
+*/
+
+
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -167,7 +220,8 @@ inline int getScratchOffset(){
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
 void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata,   
-                       const unsigned int  width, const unsigned int  height, const unsigned int steps) {
+                       const unsigned int  width, const unsigned int  height, const unsigned int steps,
+									 const unsigned int  level, const unsigned int levels) {
 
 	int inputY = getCorrectedGlobalIdY();
 	int outputY = (inputY >> 1) + (inputY & 1)*( height >> 1);

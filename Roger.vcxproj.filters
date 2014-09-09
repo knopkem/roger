@@ -71,10 +71,10 @@
     <ClInclude Include="OCLDWT.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="OCLDataManager.h">
+    <ClInclude Include="concurrent_queue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="concurrent_queue.h">
+    <ClInclude Include="OCLDataTransferManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -118,7 +118,7 @@
     <ClCompile Include="OCLDWT.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="OCLDataManager.cpp">
+    <ClCompile Include="OCLDataTransferManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

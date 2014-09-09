@@ -166,7 +166,7 @@
   <ItemGroup>
     <ClInclude Include="concurrent_queue.h" />
     <ClInclude Include="OCLBasic.h" />
-    <ClInclude Include="OCLDataManager.h" />
+    <ClInclude Include="OCLDataTransferManager.h" />
     <ClInclude Include="OCLDecoder.h" />
     <ClInclude Include="OCLDeviceManager.h" />
     <ClInclude Include="OCLDWT.h" />
@@ -183,7 +183,7 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="OCLBasic.cpp" />
-    <ClCompile Include="OCLDataManager.cpp" />
+    <ClCompile Include="OCLDataTransferManager.cpp" />
     <ClCompile Include="OCLDecoder.cpp" />
     <ClCompile Include="OCLDeviceManager.cpp" />
     <ClCompile Include="OCLDWT.cpp" />

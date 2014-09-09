@@ -41,7 +41,7 @@ template<typename T> OCLDWT<T>::~OCLDWT(void)
 
 
 
-template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,unsigned int width, unsigned int height,int steps, int level){
+template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,unsigned int width, unsigned int height,int steps, int level, int levels){
 
 	cl_int error_code =  DeviceSuccess;
 	cl_kernel targetKernel = myKernel->getKernel();
@@ -77,6 +77,19 @@ template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,unsi
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
 		return error_code;
 	}	
+	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(level), &level);
+	if (DeviceSuccess != error_code)
+	{
+		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
+		return error_code;
+	}	
+	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(levels), &levels);
+	if (DeviceSuccess != error_code)
+	{
+		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
+		return error_code;
+	}	
+
 	return DeviceSuccess;
 }
 
