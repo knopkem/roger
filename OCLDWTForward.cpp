@@ -23,7 +23,7 @@
 
 template<typename T> OCLDWTForward<T>::OCLDWTForward(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr) : OCLDWT<T>(initInfo, memMgr),
 	               	forward53(new OCLKernel( KernelInitInfo(initInfo, "ocldwt53.cl", "run") )),
-					forward97(new OCLKernel( KernelInitInfo(initInfo, "ocldwt97.cl", "run") ))
+					forward97(new OCLKernel( KernelInitInfo(initInfo, "ocldwt97.cl", "runWithQuantization") ))
 				
 											
 {
@@ -38,11 +38,11 @@ template<typename T> OCLDWTForward<T>::~OCLDWTForward(void)
 		delete forward97;
 }
 
-template<typename T> void OCLDWTForward<T>::doRun(bool lossy, int w, int h, int windowX, int windowY, int level, int levels) {
+template<typename T> void OCLDWTForward<T>::doRun(bool lossy, int w, int h, int windowX, int windowY, int level, int levels, float quantLL, float quantLH, float quantHH) {
 
 	OCLKernel* targetKernel = lossy?forward97:forward53;
 	const int steps = divRndUp(w, 15 * windowX);
-	setKernelArgs(targetKernel,w,h,steps,level, levels);
+	setKernelArgs(targetKernel,w,h,steps,level, levels, quantLL, quantLH, quantHH);
     size_t local_work_size[3] = {1,windowY,1};
 	if (lossy) {
 		size_t global_offset[3] = {0,-4,0};   //left boundary
@@ -61,9 +61,9 @@ template<typename T> void OCLDWTForward<T>::doRun(bool lossy, int w, int h, int 
 
 }
 
-template<typename T> void OCLDWTForward<T>::run(bool lossy, int w,	int h, int windowX, int windowY, int level, int levels) {
+template<typename T> void OCLDWTForward<T>::run(bool lossy, int w,	int h, int windowX, int windowY, int level, int levels, float quantLL, float quantLH, float quantHH) {
 
-	doRun(lossy, w,h,windowX, windowY,level,levels);
+	doRun(lossy, w,h,windowX, windowY,level,levels, quantLL, quantLH, quantHH);
 	if(level < levels-1) {
       // copy output's LL band back into input buffer
       const int llSizeX = divRndUp(w, 2);
@@ -72,6 +72,6 @@ template<typename T> void OCLDWTForward<T>::run(bool lossy, int w,	int h, int wi
 	  level++;
 	  
       // run remaining levels of FDWT
-      run(lossy, llSizeX, llSizeY, windowX, windowY, level,levels);
+      run(lossy, llSizeX, llSizeY, windowX, windowY, level,levels, quantLL, quantLH, quantHH);
     }
 }

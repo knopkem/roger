@@ -39,11 +39,15 @@ template<typename T> void OCLEncodeDecode<T>::finish(void){
 	clFinish(_ocl->commandQueue);
 }
 
+template<typename T> void OCLEncodeDecode<T>::run(std::vector<T*> components,int w,int h, int levels){
+	memoryManager->init(components,w,h,levels,lossy);
+}
+
 template<typename T>  tDeviceRC OCLEncodeDecode<T>::mapOutput(void** mappedPtr){
-	return memoryManager->mapImage(*memoryManager->getDwtOut(), mappedPtr);
+	return memoryManager->mapImage(*memoryManager->getOutput(), mappedPtr);
 }
 template<typename T> tDeviceRC OCLEncodeDecode<T>::unmapOutput(void* mappedPtr){
 
-	return memoryManager->unmapImage(*memoryManager->getDwtOut(), mappedPtr);
+	return memoryManager->unmapImage(*memoryManager->getOutput(), mappedPtr);
 }
 

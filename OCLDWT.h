@@ -27,7 +27,8 @@ public:
 	OCLDWT(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr);
 	~OCLDWT(void);
 protected:
-	tDeviceRC setKernelArgs(OCLKernel* myKernel,unsigned int width, unsigned int height,int steps, int level, int levels);
+	tDeviceRC setKernelArgs(OCLKernel* myKernel,unsigned int width, unsigned int height,
+		                          int steps, int level, int levels, float quantLL, float quantLH, float quantHH);
 	KernelInitInfoBase initInfo;
 	OCLMemoryManager<T>* memoryManager;
 

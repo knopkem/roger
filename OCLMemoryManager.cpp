@@ -24,7 +24,7 @@ template<typename T> OCLMemoryManager<T>::OCLMemoryManager(ocl_args_d_t* ocl) :o
 											width(0),
 											height(0),
 											_levels(0),
-											dwtOut(0)
+											out(0)
 {
 }
 
@@ -82,7 +82,7 @@ template <typename T> tDeviceRC OCLMemoryManager<T>::copyLLBandToSrc(int nextLev
 
 
 
-template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,	size_t w,	size_t h, bool floatingPointOnDevice, int levels){
+template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,	size_t w,	size_t h, int levels,bool lossy){
 	if (w <=0 || h <= 0 || components.size() == 0 || levels <= 0)
 		return;
 
@@ -121,8 +121,8 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 
 		cl_image_format format;
 		format.image_channel_order = numDeviceChannels == 4 ? CL_RGBA : CL_R;
-		format.image_channel_data_type = floatingPointOnDevice ? CL_FLOAT : CL_SIGNED_INT16;
-		dwtOut = clCreateImage (context, CL_MEM_READ_WRITE, &format, &desc, NULL,&error_code);
+		format.image_channel_data_type = lossy ? CL_FLOAT : CL_SIGNED_INT16;
+		out = clCreateImage (context, CL_MEM_READ_WRITE, &format, &desc, NULL,&error_code);
 		if (CL_SUCCESS != error_code)
 		{
 			LogError("Error: clCreateImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
@@ -230,8 +230,8 @@ template<typename T> void OCLMemoryManager<T>::freeBuffers(){
 		}
 	}
 
-	if (dwtOut) {
-		error_code = clReleaseMemObject(dwtOut);
+	if (out) {
+		error_code = clReleaseMemObject(out);
 		if (CL_SUCCESS != error_code)
 		{
 			LogError("Error: clReleaseMemObject (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));

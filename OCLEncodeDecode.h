@@ -30,6 +30,7 @@ public:
 	tDeviceRC unmapOutput(void* mappedPtr);
 	void finish(void);
 protected:
+	void run(std::vector<T*> components,int w,int h, int levels);
 	ocl_args_d_t* _ocl;
 	bool lossy;
 	OCLMemoryManager<T>* memoryManager;

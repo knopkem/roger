@@ -434,7 +434,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata, __wri
 		   if (inputY &1)
 			   writeRowToOutput(scratch + getScratchOffset(), odata, odata, firstX, outputY, width, halfWidth);
 			else
-			 writeRowToOutput(scratch + getScratchOffset(), odata, odataLL, firstX, outputY, width, halfWidth);
+			   writeRowToOutput(scratch + getScratchOffset(), odata, odataLL, firstX, outputY, width, halfWidth);
 
 		}
 		// move to next step 
@@ -442,3 +442,231 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata, __wri
 	}
 }
 
+
+// assumptions: width and height are both even
+// (we will probably have to relax these assumptions in the future)
+void KERNEL runWithQuantization(__read_only image2d_t idata, __write_only image2d_t odata, __write_only image2d_t odataLL,
+                       const unsigned int  width, const unsigned int  height, const unsigned int steps,
+					   const unsigned int  level, const unsigned int levels, 
+					   const float quantLL, const float quantLH, const float quantHH) {
+
+	int inputY = getCorrectedGlobalIdY();
+	int outputY = -1;
+	if (inputY < height && inputY >= 0)
+	    outputY = (inputY >> 1) + (inputY & 1)*( height >> 1);
+
+	bool writeRow = ((getLocalId(1) >= BOUNDARY_Y) && ( getLocalId(1) < WIN_SIZE_Y - BOUNDARY_Y) && outputY != -1);
+	bool doP2 = false;
+	bool doU2 = false;
+	if (getLocalId(1)&1)
+		doP2 = (getLocalId(1) >= BOUNDARY_Y-1) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y);
+	else
+		doU2 = (getLocalId(1) >= BOUNDARY_Y) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y) ;
+
+    const unsigned int halfWidth = width >> 1;
+	LOCAL float scratch[PIXEL_BUFFER_SIZE];
+	const float xDelta = 1.0/(width-1);
+	int firstX = getGlobalId(0) * (steps * WIN_SIZE_X);
+	
+	//0. Initialize: fetch first pixel (and 2 top boundary pixels)
+
+	// read -4 point
+	float2 posIn = (float2)(firstX-4, inputY) /  (float2)(width-1, height-1);	
+	float4 minusFour = read_imagef(idata, sampler, posIn);
+
+	posIn.x += xDelta;
+	float4 minusThree = read_imagef(idata, sampler, posIn);
+
+	// read -2 point
+	posIn.x += xDelta;
+	float4 minusTwo = read_imagef(idata, sampler, posIn);
+
+	// read -1 point
+	posIn.x += xDelta;
+	float4 minusOne = read_imagef(idata, sampler, posIn);
+
+	// read 0 point
+	posIn.x += xDelta;
+	float4 current = read_imagef(idata, sampler, posIn);
+
+	// +1 point
+	posIn.x += xDelta;
+	float4 plusOne = read_imagef(idata, sampler, posIn);
+
+	// +2 point
+	posIn.x += xDelta;
+	float4 plusTwo = read_imagef(idata, sampler, posIn);
+
+	float4 minusThree_P1 = minusThree + P1*(minusFour + minusTwo);
+	float4 minusOne_P1   = minusOne   + P1*(minusTwo + current);
+	float4 plusOne_P1    = plusOne    + P1*(current + plusTwo);
+
+	float4 minusTwo_U1 = minusTwo + U1*(minusThree_P1 + minusOne_P1);
+	float4 current_U1  = current + U1*(minusOne_P1 + plusOne_P1);
+	float4 minusOne_P2 = minusOne_P1 + P2*(minusTwo_U1 + current_U1);
+		
+	for (int i = 0; i < steps; ++i) {
+
+		// 1. read from source image, transform rows, and store in local scratch
+		LOCAL float* currentScratch = scratch + getScratchOffset();
+		for (int j = 0; j < WIN_SIZE_X; j+=2) {
+
+	        //read next two points
+
+			// +3 point
+			posIn.x += xDelta;
+			float4 plusThree = read_imagef(idata, sampler, posIn);
+	   
+	   		// +4 point
+			posIn.x += xDelta;
+	   		if (posIn.x > 1 + 3*xDelta)
+				break;
+			float4 plusFour = read_imagef(idata, sampler, posIn);
+
+			float4 plusThree_P1    = plusThree  + P1*(plusTwo + plusFour);
+			float4 plusTwo_U1      = plusTwo + U1*(plusOne_P1 + plusThree_P1);
+			float4 plusOne_P2      = plusOne_P1 + P2*(current_U1 + plusTwo_U1);
+								 
+					  
+			//write current U2 (even)
+			writePixel(scale97Div * (current_U1 +  U2 * (minusOne_P2 + plusOne_P2)), currentScratch);
+
+			//advance scratch pointer
+			currentScratch += HORIZONTAL_STRIDE;
+
+			//write current P2 (odd)
+			writePixel(scale97Mul* plusOne_P2 , currentScratch);
+
+			//advance scratch pointer
+			currentScratch += HORIZONTAL_STRIDE;
+
+			// shift registers up by two
+			minusFour = minusTwo;
+			minusThree = minusOne;
+			minusTwo = current;
+			minusOne = plusOne;
+			current = plusTwo;
+			plusOne = plusThree;
+			plusTwo = plusFour;
+			//update P1s
+			minusThree_P1 = minusOne_P1;
+			minusOne_P1 = plusOne_P1;
+			plusOne_P1 = plusThree_P1;
+
+			//update U1s
+			minusTwo_U1 = current_U1;
+			current_U1 = plusTwo_U1;
+
+			//update P2s
+			minusOne_P2 = plusOne_P2;
+		}
+
+		
+		//4. transform vertically
+		currentScratch = scratch + getScratchOffset();	
+
+		
+		localMemoryFence();
+		// P2 - predict odd columns (skip left three boundary columns and all right boundary columns)
+		if ( doP2 ) {
+			for (int j = 0; j < WIN_SIZE_X; j++) {
+				float4 minusOne = readPixel(currentScratch -1);
+				float4 plusOne = readPixel(currentScratch);
+				float4 plusThree = readPixel(currentScratch + 1); 
+
+				float4 minusTwo, current,plusTwo, plusFour;
+
+				minusTwo.x = currentScratch[VERTICAL_ODD_TO_PREVIOUS_EVEN_MINUS_ONE];
+				current.x  = currentScratch[VERTICAL_ODD_TO_PREVIOUS_EVEN];
+				plusTwo.x  = currentScratch[VERTICAL_ODD_TO_NEXT_EVEN];
+				plusFour.x = currentScratch[VERTICAL_ODD_TO_NEXT_EVEN_PLUS_ONE];
+
+				currentScratch += CHANNEL_BUFFER_SIZE;
+				minusTwo.y = currentScratch[VERTICAL_ODD_TO_PREVIOUS_EVEN_MINUS_ONE];
+				current.y  = currentScratch[VERTICAL_ODD_TO_PREVIOUS_EVEN];
+				plusTwo.y  = currentScratch[VERTICAL_ODD_TO_NEXT_EVEN];
+				plusFour.y = currentScratch[VERTICAL_ODD_TO_NEXT_EVEN_PLUS_ONE];
+
+				currentScratch += CHANNEL_BUFFER_SIZE;
+				minusTwo.z = currentScratch[VERTICAL_ODD_TO_PREVIOUS_EVEN_MINUS_ONE];
+				current.z  = currentScratch[VERTICAL_ODD_TO_PREVIOUS_EVEN];
+				plusTwo.z  = currentScratch[VERTICAL_ODD_TO_NEXT_EVEN];
+				plusFour.z = currentScratch[VERTICAL_ODD_TO_NEXT_EVEN_PLUS_ONE];
+
+
+				currentScratch += CHANNEL_BUFFER_SIZE;
+				minusTwo.w = currentScratch[VERTICAL_ODD_TO_PREVIOUS_EVEN_MINUS_ONE];
+				current.w  = currentScratch[VERTICAL_ODD_TO_PREVIOUS_EVEN];
+				plusTwo.w  = currentScratch[VERTICAL_ODD_TO_NEXT_EVEN];
+				plusFour.w = currentScratch[VERTICAL_ODD_TO_NEXT_EVEN_PLUS_ONE];
+
+				currentScratch -= CHANNEL_BUFFER_SIZE_X3;
+
+				float4 current_U1 = current + U1*(minusOne + plusOne) + U1P1*(minusTwo + 2*current + plusTwo);
+
+				// write P2
+				writePixel( scale97Mul*(plusOne + P1*(current + plusTwo) +
+		         				      P2*(current_U1 + plusTwo + U1*(plusOne + plusThree) +
+									  U1P1*(current + 2*plusTwo + plusFour)  )),
+									  currentScratch);
+				// write U1, for use by even loop
+				writePixel(current_U1, currentScratch + VERTICAL_ODD_TO_PREVIOUS_EVEN);
+
+				currentScratch += HORIZONTAL_STRIDE;
+			}
+		}
+		
+
+		currentScratch = scratch + getScratchOffset();	
+		localMemoryFence();
+		//U2 - update even columns (skip left and right boundary columns)
+		if ( doU2 ) {
+			for (int j = 0; j < WIN_SIZE_X; j++) {
+
+				float4 current = readPixel(currentScratch);
+
+				// read previous and next odd
+				float4 prevOdd, nextOdd;
+
+				prevOdd.x = currentScratch[VERTICAL_EVEN_TO_PREVIOUS_ODD];
+				nextOdd.x  = currentScratch[VERTICAL_EVEN_TO_NEXT_ODD];
+
+
+				currentScratch += CHANNEL_BUFFER_SIZE;
+				prevOdd.y = currentScratch[VERTICAL_EVEN_TO_PREVIOUS_ODD];
+				nextOdd.y  = currentScratch[VERTICAL_EVEN_TO_NEXT_ODD];
+
+				currentScratch += CHANNEL_BUFFER_SIZE;
+				prevOdd.z = currentScratch[VERTICAL_EVEN_TO_PREVIOUS_ODD];
+				nextOdd.z  = currentScratch[VERTICAL_EVEN_TO_NEXT_ODD];
+
+
+				currentScratch += CHANNEL_BUFFER_SIZE;
+				prevOdd.w = currentScratch[VERTICAL_EVEN_TO_PREVIOUS_ODD];
+				nextOdd.w  = currentScratch[VERTICAL_EVEN_TO_NEXT_ODD];
+
+				currentScratch -= CHANNEL_BUFFER_SIZE_X3;
+				//////////////////////////////////////////////////////////////////
+
+				// write U2
+				writePixel( scale97Div*(current + U2*(prevOdd + nextOdd)), currentScratch);
+				currentScratch += HORIZONTAL_STRIDE;
+			}
+		}
+		localMemoryFence();
+		
+
+
+		//5. write local buffer column to destination image
+		// (only write non-boundary columns that are within the image bounds)
+		if (writeRow) {
+		   if (inputY &1)
+			   writeRowToOutput(scratch + getScratchOffset(), odata, odata, firstX, outputY, width, halfWidth);
+			else
+			   writeRowToOutput(scratch + getScratchOffset(), odata, odataLL, firstX, outputY, width, halfWidth);
+
+		}
+		// move to next step 
+		firstX += WIN_SIZE_X;
+	}
+}

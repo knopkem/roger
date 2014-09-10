@@ -36,7 +36,7 @@ template<typename T> OCLDecoder<T>::~OCLDecoder(){
 }
 
 template<typename T> void OCLDecoder<T>::run(std::vector<T*> components,int w,int h, int levels){
-	memoryManager->init(components,w,h,lossy, levels);
+	OCLEncodeDecode::run(components,w,h,levels);
 	dwt->run(lossy, w,h, 128,8);
 }
 

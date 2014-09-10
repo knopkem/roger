@@ -29,13 +29,13 @@ public:
 	size_t getWidth() {return width;}
 	size_t getHeight() {return height;}
 	int    getNumLevels() {return _levels;}
-	cl_mem* getDwtOut(){ return &dwtOut;}
+	cl_mem* getOutput(){ return &out;}
 	cl_mem* getDwtIn(int level){
 		if (level >= dwtIn.size())
 			return NULL;
 		return &dwtIn[level];
 	}
-	void init(std::vector<T*> components, size_t w, size_t h, bool floatingPointOnDevice, int levels);
+	void init(std::vector<T*> components, size_t w, size_t h, int levels, bool lossy);
 
 	tDeviceRC mapImage(cl_mem img, void** mappedPtr);
 	tDeviceRC unmapImage(cl_mem, void* mappedPtr);
@@ -54,7 +54,7 @@ private:
 	int _levels;
  
 	std::vector<cl_mem> dwtIn;  
-	cl_mem dwtOut;
+	cl_mem out;  //could be dwt or dwt + quantization
 
 };
 
