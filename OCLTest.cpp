@@ -34,12 +34,12 @@ using namespace cv;
 #define OCL_SAMPLE_IMAGE_NAME "baboon.png"
 
 
-template<typename T>  OCLTest<T>::OCLTest(bool isLossy) : encoder(NULL), decoder(NULL), lossy(isLossy)
+template<typename T, typename U>  OCLTest<T,U>::OCLTest(bool isLossy) : encoder(NULL), decoder(NULL), lossy(isLossy)
 {
 }
 
 
-template<typename T> OCLTest<T>::~OCLTest(void)
+template<typename T, typename U> OCLTest<T,U>::~OCLTest(void)
 {
 	if (encoder)
 		delete encoder;
@@ -47,7 +47,7 @@ template<typename T> OCLTest<T>::~OCLTest(void)
 		delete decoder;
 }
 
-template<typename T> void OCLTest<T>::test()
+template<typename T, typename U> void OCLTest<T,U>::test()
 {
 	testInit();
 
@@ -106,7 +106,7 @@ template<typename T> void OCLTest<T>::test()
 	t = my_clock() - t;
 	fprintf(stdout, "encode time: %d micro seconds \n", (int)((t * 1000000)/numIterations));
 
-	T* results = getTestResults();
+	U* results = getTestResults();
 	if (results) {
 		int resultsIndex=0;
 		for (int i = 0; i < imageSize; ++i){
@@ -132,7 +132,7 @@ template<typename T> void OCLTest<T>::test()
 
 }
 
-template<typename T> void OCLTest<T>::testInit() {
+template<typename T, typename U> void OCLTest<T,U>::testInit() {
 	OCLDeviceManager* deviceManager = new OCLDeviceManager();
 	deviceManager->init();
 	encoder = new OCLEncoder<T>(deviceManager->getInfo(), lossy);
@@ -140,16 +140,16 @@ template<typename T> void OCLTest<T>::testInit() {
 }
 
 
-template<typename T> void OCLTest<T>::testRun(std::vector<T*> components,int w,int h, int levels) {
+template<typename T, typename U> void OCLTest<T,U>::testRun(std::vector<T*> components,int w,int h, int levels) {
 	encoder->run(components,w,h, levels);
 }
 
-template<typename T> void OCLTest<T>::testFinish() {
+template<typename T, typename U> void OCLTest<T,U>::testFinish() {
 	encoder->finish();
 }
 
-template<typename T> T* OCLTest<T>::getTestResults(){
+template<typename T, typename U> U* OCLTest<T,U>::getTestResults(){
 	void* ptr;
 	encoder->mapOutput(&ptr);
-	return (T*)ptr;
+	return (U*)ptr;
 }

@@ -19,7 +19,7 @@
 #include "OCLEncoder.h"
 #include "OCLDecoder.h"
 
-template< typename T > class OCLTest
+template< typename T, typename U > class OCLTest
 {
 public:
 	OCLTest(bool lossy);
@@ -30,7 +30,7 @@ private:
 	void testInit();
     void testRun(std::vector<T*> components,int w,int h, int levels);
 	void testFinish();
-	T* getTestResults();
+	U* getTestResults();
 
 	OCLEncoder<T>* encoder;
 	OCLDecoder<T>* decoder;
