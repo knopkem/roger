@@ -121,14 +121,14 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 
 		cl_image_format format;
 		format.image_channel_order = numDeviceChannels == 4 ? CL_RGBA : CL_R;
-		format.image_channel_data_type = lossy ? CL_FLOAT : CL_SIGNED_INT16;
+		format.image_channel_data_type = lossy ? CL_SIGNED_INT32 : CL_SIGNED_INT16;
 		out = clCreateImage (context, CL_MEM_READ_WRITE, &format, &desc, NULL,&error_code);
 		if (CL_SUCCESS != error_code)
 		{
 			LogError("Error: clCreateImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
 			return;
 		}
-
+		format.image_channel_data_type = lossy ? CL_FLOAT : CL_SIGNED_INT16;
 		for (int i =0; i < levels; ++i) {
 			cl_mem temp = clCreateImage (context, CL_MEM_READ_WRITE, &format, &desc, NULL,&error_code);
 			if (CL_SUCCESS != error_code)

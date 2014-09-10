@@ -462,13 +462,13 @@ void writeQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_only 
 	    if (posOut.x >= halfWidth)
 			break;
 
-		write_imagef(odata, posOut,scale97Div * readPixel(currentScratch));
+		write_imagei(odata, posOut, convert_int4_rtz(ceil(scale97Div * readPixel(currentScratch))) );
 
 		// odd column
 		currentScratch += HORIZONTAL_STRIDE ;
 		posOut.x+= halfWidth;
 
-		write_imagef(odata, posOut,scale97Mul * readPixel(currentScratch));
+		write_imagei(odata, posOut, convert_int4_rtz(ceil(scale97Mul * readPixel(currentScratch))) );
 
 		currentScratch += HORIZONTAL_STRIDE;
 		posOut.x -= (halfWidth - 1);
@@ -497,7 +497,7 @@ void writeMixedQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_
 		currentScratch += HORIZONTAL_STRIDE ;
 		posOut.x+= halfWidth;
 
-		write_imagef(odata, posOut,scale97Mul * readPixel(currentScratch));
+		write_imagei(odata, posOut, convert_int4_rtz(ceil(scale97Mul * readPixel(currentScratch))) );
 
 		currentScratch += HORIZONTAL_STRIDE;
 		posOut.x -= (halfWidth - 1);
