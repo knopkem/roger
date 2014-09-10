@@ -89,19 +89,6 @@ template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,unsi
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
 		return error_code;
 	}	
-	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(level), &level);
-	if (DeviceSuccess != error_code)
-	{
-		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
-		return error_code;
-	}	
-	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(levels), &levels);
-	if (DeviceSuccess != error_code)
-	{
-		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
-		return error_code;
-	}	
-
 	return DeviceSuccess;
 }
 
