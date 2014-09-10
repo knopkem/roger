@@ -27,7 +27,9 @@ inline int divRndUp(const int n, const int d) {
 
 template<typename T> OCLDWT<T>::OCLDWT(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr) : 
 	                initInfo(initInfo),
-					memoryManager(memMgr)
+					memoryManager(memMgr),
+					numKernelArgs(0)
+
 				
 											
 {
@@ -39,24 +41,17 @@ template<typename T> OCLDWT<T>::~OCLDWT(void)
 }
 
 
-/**
-A note about resolution levels: For a transform with N resolution levels, resolution levels run from 0 up to N-1.
-
-**/
-
-template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,unsigned int width, unsigned int height,int steps, int level, int levels, float quantLL, float quantLH, float quantHH){
-
-	cl_int error_code =  DeviceSuccess;
+template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,unsigned int width, unsigned int height,int steps, int level, int levels){
+	numKernelArgs = 0;
 	cl_kernel targetKernel = myKernel->getKernel();
-	int argNum = 0;
-	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(cl_mem),  memoryManager->getDwtIn(level));
+	cl_int error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(cl_mem),  memoryManager->getDwtIn(level));
 	if (DeviceSuccess != error_code)
 	{
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
 		return error_code;
 	}
 
-	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(cl_mem), (level < levels-1) ?
+	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(cl_mem), (level < levels-1) ?
 		                                                    memoryManager->getDwtIn(level+1) :  memoryManager->getOutput() );
 	if (DeviceSuccess != error_code)
 	{
@@ -64,57 +59,69 @@ template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,unsi
 		return error_code;
 	}
 
-	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(cl_mem), memoryManager->getOutput());
+	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(cl_mem), memoryManager->getOutput());
 	if (DeviceSuccess != error_code)
 	{
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
 		return error_code;
 	}
 
-	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(width), &width);
+	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(width), &width);
 	if (DeviceSuccess != error_code)
 	{
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
 		return error_code;
 	}
-	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(height), &height);
+	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(height), &height);
 	if (DeviceSuccess != error_code)
 	{
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
 		return error_code;
 	}
-	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(steps), &steps);
+	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(steps), &steps);
 	if (DeviceSuccess != error_code)
 	{
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
 		return error_code;
 	}	
-	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(level), &level);
+	return DeviceSuccess;
+}
+
+
+
+/**
+A note about resolution levels: For a transform with N resolution levels, resolution levels run from 0 up to N-1.
+
+**/
+template<typename T> tDeviceRC OCLDWT<T>::setKernelArgsQuant(OCLKernel* myKernel, int level, int levels, float quantLL, float quantLH, float quantHH){
+
+	cl_kernel targetKernel = myKernel->getKernel();
+	cl_int error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(level), &level);
 	if (DeviceSuccess != error_code)
 	{
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
 		return error_code;
 	}
-	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(levels), &levels);
+	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(levels), &levels);
 	if (DeviceSuccess != error_code)
 	{
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
 		return error_code;
 	}	
 
-	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(quantLL), &quantLL);
+	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(quantLL), &quantLL);
 	if (DeviceSuccess != error_code)
 	{
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
 		return error_code;
 	}	
-	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(quantLH), &quantLH);
+	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(quantLH), &quantLH);
 	if (DeviceSuccess != error_code)
 	{
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
 		return error_code;
 	}
-	error_code = clSetKernelArg(targetKernel, argNum++, sizeof(quantHH), &quantHH);
+	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(quantHH), &quantHH);
 	if (DeviceSuccess != error_code)
 	{
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
@@ -123,4 +130,3 @@ template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,unsi
 
 	return DeviceSuccess;
 }
-

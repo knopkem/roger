@@ -107,7 +107,7 @@ inline void writePixel(int4 pix, LOCAL short*  restrict  dest) {
 }
 
 // write row to destination
-void writeRowToOutput(LOCAL short* restrict currentScratch, __write_only image2d_t odata,  __write_only image2d_t odataLL, int firstX, int outputY, int width, int halfWidth){
+void writeRowToOutput(LOCAL short* restrict currentScratch, write_only image2d_t odata,  write_only image2d_t odataLL, int firstX, int outputY, int width, int halfWidth){
 
 	int2 posOut = {firstX>>1, outputY};
 	for (int j = 0; j < WIN_SIZE_X; j+=2) {
@@ -139,7 +139,7 @@ inline int getScratchOffset(){
 
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
-void KERNEL run(read_only image2d_t idata, write_only image2d_t odata,  __write_only image2d_t odataLL,
+void KERNEL run(read_only image2d_t idata, write_only image2d_t odataLL, write_only image2d_t odata,
                        const unsigned int  width, const unsigned int  height, const unsigned int steps) {
 
 	int inputY = getCorrectedGlobalIdY();

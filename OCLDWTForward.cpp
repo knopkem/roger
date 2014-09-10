@@ -42,7 +42,13 @@ template<typename T> void OCLDWTForward<T>::doRun(bool lossy, int w, int h, int 
 
 	OCLKernel* targetKernel = lossy?forward97:forward53;
 	const int steps = divRndUp(w, 15 * windowX);
-	setKernelArgs(targetKernel,w,h,steps,level, levels, quantLL, quantLH, quantHH);
+	if (setKernelArgs(targetKernel,w,h,steps,level,levels) != DeviceSuccess)
+		return;
+	if (lossy) {
+		if (setKernelArgsQuant(targetKernel,level, levels, quantLL, quantLH, quantHH) != DeviceSuccess)
+			return;
+
+	}
     size_t local_work_size[3] = {1,windowY,1};
 	if (lossy) {
 		size_t global_offset[3] = {0,-4,0};   //left boundary
