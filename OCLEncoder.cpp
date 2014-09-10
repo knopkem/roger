@@ -36,5 +36,5 @@ template<typename T> OCLEncoder<T>::~OCLEncoder(){
 
 template<typename T> void OCLEncoder<T>::run(std::vector<T*> components,int w,int h, int levels){
 	OCLEncodeDecode::run(components,w,h,levels);
-	dwt->run(lossy, w,h, 8,128,0,levels, 1/128.0,1/128.0,1/128.0);
+	dwt->run(lossy, w,h, 8,128,0,levels, 0.5,0.5,0.5);
 }

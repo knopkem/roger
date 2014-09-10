@@ -449,10 +449,10 @@ void KERNEL run(read_only image2d_t idata, write_only image2d_t odataLL, write_o
 // DWT with Quantization
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// write HL and HH bands destination
+// write quantized low and high bands (relative to horizontal axis)
 void writeQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_only image2d_t odata, 
 													int firstX, int outputY, int width, int halfWidth,
-													 const float quantLH, const float quantHH){
+													 const float quantLow, const float quantHigh){
 
 	int2 posOut = {firstX>>1, outputY};
 	for (int j = 0; j < WIN_SIZE_X; j+=2) {
@@ -462,13 +462,13 @@ void writeQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_only 
 	    if (posOut.x >= halfWidth)
 			break;
 
-		write_imagei(odata, posOut, convert_int4_rtz(ceil(scale97Div * readPixel(currentScratch))) );
+		write_imagei(odata, posOut, convert_int4_rtz(ceil(quantLow * readPixel(currentScratch))) );
 
 		// odd column
 		currentScratch += HORIZONTAL_STRIDE ;
 		posOut.x+= halfWidth;
 
-		write_imagei(odata, posOut, convert_int4_rtz(ceil(scale97Mul * readPixel(currentScratch))) );
+		write_imagei(odata, posOut, convert_int4_rtz(ceil(quantHigh * readPixel(currentScratch))) );
 
 		currentScratch += HORIZONTAL_STRIDE;
 		posOut.x -= (halfWidth - 1);
@@ -476,12 +476,12 @@ void writeQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_only 
 }
 
 
-// write LL and LH bands
-// LL band is not quantized, but other bands are
+// write low and high bands (relative to horizontal axis)
+// low band is not quantized, but high band is
 // odata is integer buffer (use quantization), while odataLL is float buffer (no quantization) 
 void writeMixedQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_only image2d_t odataLL,
 										 write_only image2d_t odata, int firstX, int outputY, int width, int halfWidth,
-										  const float quantLL, const float quantLH){
+										  const float quantLow, const float quantHigh){
 
 	int2 posOut = {firstX>>1, outputY};
 	for (int j = 0; j < WIN_SIZE_X; j+=2) {
@@ -491,13 +491,13 @@ void writeMixedQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_
 	    if (posOut.x >= halfWidth)
 			break;
 
-		write_imagef(odataLL, posOut,scale97Div * readPixel(currentScratch));
+		write_imagef(odataLL, posOut,quantLow * readPixel(currentScratch));
 
 		// odd column
 		currentScratch += HORIZONTAL_STRIDE ;
 		posOut.x+= halfWidth;
 
-		write_imagei(odata, posOut, convert_int4_rtz(ceil(scale97Mul * readPixel(currentScratch))) );
+		write_imagei(odata, posOut, convert_int4_rtz(ceil(quantHigh * readPixel(currentScratch))) );
 
 		currentScratch += HORIZONTAL_STRIDE;
 		posOut.x -= (halfWidth - 1);
@@ -527,8 +527,8 @@ void KERNEL runWithQuantization(read_only image2d_t idata,  write_only image2d_t
 		doU2 = (getLocalId(1) >= BOUNDARY_Y) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y) ;
 
     bool oddInputY = inputY &1;
-	const float quantLow = oddInputY ? quantLH : quantLL;
-	const float quantHigh = oddInputY ? quantHH : quantLH;
+	const float quantLow = (oddInputY ? quantLH : quantLL) * scale97Div;
+	const float quantHigh = (oddInputY ? quantHH : quantLH) * scale97Mul;
 
     const unsigned int halfWidth = width >> 1;
 	LOCAL float scratch[PIXEL_BUFFER_SIZE];
