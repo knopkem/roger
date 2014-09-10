@@ -188,7 +188,8 @@ inline void writePixel(float4 pix, LOCAL float*  restrict  dest) {
 }
 
 // write row to destination
-void writeRowToOutput(LOCAL float* restrict currentScratch, __write_only image2d_t odata, __write_only image2d_t odataLL, int firstX, int outputY, int width, int halfWidth){
+void writeRowToOutput(LOCAL float* restrict currentScratch, write_only image2d_t odataLL, write_only image2d_t odata, 
+																		int firstX, int outputY, int width, int halfWidth){
 
 	int2 posOut = {firstX>>1, outputY};
 	for (int j = 0; j < WIN_SIZE_X; j+=2) {
@@ -218,7 +219,7 @@ inline int getScratchOffset(){
 
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
-void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata, __write_only image2d_t odataLL,
+void KERNEL run(read_only image2d_t idata, write_only image2d_t odataLL, write_only image2d_t odata, 
                        const unsigned int  width, const unsigned int  height, const unsigned int steps) {
 
 	int inputY = getCorrectedGlobalIdY();
@@ -434,7 +435,7 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata, __wri
 		   if (inputY &1)
 			   writeRowToOutput(scratch + getScratchOffset(), odata, odata, firstX, outputY, width, halfWidth);
 			else
-			   writeRowToOutput(scratch + getScratchOffset(), odata, odataLL, firstX, outputY, width, halfWidth);
+			   writeRowToOutput(scratch + getScratchOffset(), odataLL, odata, firstX, outputY, width, halfWidth);
 
 		}
 		// move to next step 
@@ -442,10 +443,72 @@ void KERNEL run(__read_only image2d_t idata, __write_only image2d_t odata, __wri
 	}
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// DWT with Quantization
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// write HL and HH bands destination
+void writeQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_only image2d_t odata, 
+													int firstX, int outputY, int width, int halfWidth,
+													 const float quantLH, const float quantHH){
+
+	int2 posOut = {firstX>>1, outputY};
+	for (int j = 0; j < WIN_SIZE_X; j+=2) {
+	
+	    // even column
+		//only need to check evens, since even point will be the first out of bound point
+	    if (posOut.x >= halfWidth)
+			break;
+
+		write_imagef(odata, posOut,scale97Div * readPixel(currentScratch));
+
+		// odd column
+		currentScratch += HORIZONTAL_STRIDE ;
+		posOut.x+= halfWidth;
+
+		write_imagef(odata, posOut,scale97Mul * readPixel(currentScratch));
+
+		currentScratch += HORIZONTAL_STRIDE;
+		posOut.x -= (halfWidth - 1);
+	}
+}
+
+
+// write LL and LH bands
+// LL band is not quantized, but other bands are
+// odata is integer buffer (use quantization), while odataLL is float buffer (no quantization) 
+void writeMixedQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_only image2d_t odataLL,
+										 write_only image2d_t odata, int firstX, int outputY, int width, int halfWidth,
+										  const float quantLL, const float quantLH){
+
+	int2 posOut = {firstX>>1, outputY};
+	for (int j = 0; j < WIN_SIZE_X; j+=2) {
+	
+	    // even column
+		//only need to check evens, since even point will be the first out of bound point
+	    if (posOut.x >= halfWidth)
+			break;
+
+		write_imagef(odataLL, posOut,scale97Div * readPixel(currentScratch));
+
+		// odd column
+		currentScratch += HORIZONTAL_STRIDE ;
+		posOut.x+= halfWidth;
+
+		write_imagef(odata, posOut,scale97Mul * readPixel(currentScratch));
+
+		currentScratch += HORIZONTAL_STRIDE;
+		posOut.x -= (halfWidth - 1);
+	}
+}
+
+
 
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
-void KERNEL runWithQuantization(__read_only image2d_t idata, __write_only image2d_t odata, __write_only image2d_t odataLL,
+void KERNEL runWithQuantization(read_only image2d_t idata,  write_only image2d_t odataLL, write_only image2d_t odata,
                        const unsigned int  width, const unsigned int  height, const unsigned int steps,
 					   const unsigned int  level, const unsigned int levels, 
 					   const float quantLL, const float quantLH, const float quantHH) {
@@ -462,6 +525,10 @@ void KERNEL runWithQuantization(__read_only image2d_t idata, __write_only image2
 		doP2 = (getLocalId(1) >= BOUNDARY_Y-1) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y);
 	else
 		doU2 = (getLocalId(1) >= BOUNDARY_Y) && (getLocalId(1) < WIN_SIZE_Y-BOUNDARY_Y) ;
+
+    bool oddInputY = inputY &1;
+	const float quantLow = oddInputY ? quantLH : quantLL;
+	const float quantHigh = oddInputY ? quantHH : quantLH;
 
     const unsigned int halfWidth = width >> 1;
 	LOCAL float scratch[PIXEL_BUFFER_SIZE];
@@ -658,13 +725,15 @@ void KERNEL runWithQuantization(__read_only image2d_t idata, __write_only image2
 
 
 		//5. write local buffer column to destination image
-		// (only write non-boundary columns that are within the image bounds)
 		if (writeRow) {
-		   if (inputY &1)
-			   writeRowToOutput(scratch + getScratchOffset(), odata, odata, firstX, outputY, width, halfWidth);
+		
+		   if (oddInputY || (level == levels-1) )
+			   writeQuantizedRowToOutput(scratch + getScratchOffset(), odata, firstX, outputY, 
+			                            width, halfWidth, quantLow, quantHigh);
 			else
-			   writeRowToOutput(scratch + getScratchOffset(), odata, odataLL, firstX, outputY, width, halfWidth);
-
+			   writeMixedQuantizedRowToOutput(scratch + getScratchOffset(), odataLL, odata, firstX, outputY, 
+										width, halfWidth, quantLow, quantHigh);
+										
 		}
 		// move to next step 
 		firstX += WIN_SIZE_X;
