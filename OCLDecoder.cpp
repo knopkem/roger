@@ -19,19 +19,16 @@
 #include "OCLDWTRev.cpp"
 #include "OCLUtil.h"
 #include "OCLMemoryManager.cpp"
+#include "OCLEncodeDecode.cpp"
 
 
 
 
-template<typename T> OCLDecoder<T>::OCLDecoder(ocl_args_d_t* ocl, bool isLossy) :
-	_ocl(ocl), 
-	lossy(isLossy),
-	memoryManager(new OCLMemoryManager<T>(ocl)),
+template<typename T> OCLDecoder<T>::OCLDecoder(ocl_args_d_t* ocl, bool isLossy) : OCLEncodeDecode<T>(ocl,lossy),
 	dwt(new OCLDWTRev<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=128 -D WIN_SIZE_Y=8"), memoryManager))
 {
 
 }
-
 
 template<typename T> OCLDecoder<T>::~OCLDecoder(){
 	if (dwt)
@@ -41,18 +38,5 @@ template<typename T> OCLDecoder<T>::~OCLDecoder(){
 template<typename T> void OCLDecoder<T>::run(std::vector<T*> components,int w,int h, int levels){
 	memoryManager->init(components,w,h,lossy, levels);
 	dwt->run(lossy, w,h, 128,8);
-}
-
-template<typename T> void OCLDecoder<T>::finish(void){
-
-	clFinish(_ocl->commandQueue);
-}
-
-template<typename T>  tDeviceRC OCLDecoder<T>::mapOutput(void** mappedPtr){
-	return memoryManager->mapImage(*memoryManager->getDwtOut(), mappedPtr);
-}
-template<typename T> tDeviceRC OCLDecoder<T>::unmapOutput(void* mappedPtr){
-
-	return memoryManager->unmapImage(*memoryManager->getDwtOut(), mappedPtr);
 }
 

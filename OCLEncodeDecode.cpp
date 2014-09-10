@@ -15,20 +15,35 @@
 
 #pragma once
 
-#include "OCLDWTRev.h"
-struct ocl_args_d_t;
-#include <vector>
-#include "OCLMemoryManager.h"
 #include "OCLEncodeDecode.h"
+#include "OCLUtil.h"
+#include "OCLMemoryManager.cpp"
 
 
-template<typename T>  class OCLDecoder : public OCLEncodeDecode<T>
+
+
+template<typename T> OCLEncodeDecode<T>::OCLEncodeDecode(ocl_args_d_t* ocl, bool isLossy) :
+	_ocl(ocl), 
+	lossy(isLossy),
+	memoryManager(new OCLMemoryManager<T>(ocl))
 {
-public:
-	OCLDecoder(ocl_args_d_t* ocl, bool isLossy);
-	~OCLDecoder(void);
-	void run(std::vector<T*> components,int w,int h, int levels);
-private:
-	OCLDWTRev<T>* dwt;
-	
-};
+
+}
+
+
+template<typename T> OCLEncodeDecode<T>::~OCLEncodeDecode(){
+}
+
+template<typename T> void OCLEncodeDecode<T>::finish(void){
+
+	clFinish(_ocl->commandQueue);
+}
+
+template<typename T>  tDeviceRC OCLEncodeDecode<T>::mapOutput(void** mappedPtr){
+	return memoryManager->mapImage(*memoryManager->getDwtOut(), mappedPtr);
+}
+template<typename T> tDeviceRC OCLEncodeDecode<T>::unmapOutput(void* mappedPtr){
+
+	return memoryManager->unmapImage(*memoryManager->getDwtOut(), mappedPtr);
+}
+

@@ -172,6 +172,7 @@
     <ClInclude Include="OCLDWT.h" />
     <ClInclude Include="OCLDWTForward.h" />
     <ClInclude Include="OCLDWTRev.h" />
+    <ClInclude Include="OCLEncodeDecode.h" />
     <ClInclude Include="OCLEncoder.h" />
     <ClInclude Include="OCLTest.h" />
     <ClInclude Include="OCLKernel.h" />
@@ -189,6 +190,7 @@
     <ClCompile Include="OCLDWT.cpp" />
     <ClCompile Include="OCLDWTForward.cpp" />
     <ClCompile Include="OCLDWTRev.cpp" />
+    <ClCompile Include="OCLEncodeDecode.cpp" />
     <ClCompile Include="OCLEncoder.cpp" />
     <ClCompile Include="OCLTest.cpp" />
     <ClCompile Include="OCLKernel.cpp" />

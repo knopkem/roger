@@ -15,20 +15,23 @@
 
 #pragma once
 
-#include "OCLDWTRev.h"
 struct ocl_args_d_t;
 #include <vector>
 #include "OCLMemoryManager.h"
-#include "OCLEncodeDecode.h"
 
 
-template<typename T>  class OCLDecoder : public OCLEncodeDecode<T>
+template<typename T>  class OCLEncodeDecode
 {
 public:
-	OCLDecoder(ocl_args_d_t* ocl, bool isLossy);
-	~OCLDecoder(void);
-	void run(std::vector<T*> components,int w,int h, int levels);
-private:
-	OCLDWTRev<T>* dwt;
-	
+	OCLEncodeDecode(ocl_args_d_t* ocl, bool isLossy);
+	~OCLEncodeDecode(void);
+
+	tDeviceRC mapOutput(void** mappedPtr);
+	tDeviceRC unmapOutput(void* mappedPtr);
+	void finish(void);
+protected:
+	ocl_args_d_t* _ocl;
+	bool lossy;
+	OCLMemoryManager<T>* memoryManager;
+
 };

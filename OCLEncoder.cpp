@@ -19,14 +19,10 @@
 #include "OCLDWTForward.cpp"
 #include "OCLUtil.h"
 #include "OCLMemoryManager.cpp"
+#include "OCLEncodeDecode.cpp"
 
 
-
-
-template<typename T> OCLEncoder<T>::OCLEncoder(ocl_args_d_t* ocl, bool isLossy) :
-	_ocl(ocl), 
-	lossy(isLossy),
-	memoryManager(new OCLMemoryManager<T>(ocl)),
+template<typename T> OCLEncoder<T>::OCLEncoder(ocl_args_d_t* ocl, bool isLossy) : OCLEncodeDecode<T>(ocl, isLossy),
 	dwt(new OCLDWTForward<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=8 -D WIN_SIZE_Y=128"), memoryManager))
 {
 
@@ -42,17 +38,3 @@ template<typename T> void OCLEncoder<T>::run(std::vector<T*> components,int w,in
 	memoryManager->init(components,w,h,lossy,levels);
 	dwt->run(lossy, w,h, 8,128,0,levels);
 }
-
-template<typename T> void OCLEncoder<T>::finish(void){
-
-	clFinish(_ocl->commandQueue);
-}
-
-template<typename T>  tDeviceRC OCLEncoder<T>::mapOutput(void** mappedPtr){
-	return memoryManager->mapImage(*memoryManager->getDwtOut(), mappedPtr);
-}
-template<typename T> tDeviceRC OCLEncoder<T>::unmapOutput(void* mappedPtr){
-
-	return memoryManager->unmapImage(*memoryManager->getDwtOut(), mappedPtr);
-}
-

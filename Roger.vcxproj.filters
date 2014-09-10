@@ -77,6 +77,9 @@
     <ClInclude Include="OCLDataTransferManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="OCLEncodeDecode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="OCLKernel.cpp">
@@ -119,6 +122,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="OCLDataTransferManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OCLEncodeDecode.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -19,21 +19,16 @@
 struct ocl_args_d_t;
 #include <vector>
 #include "OCLMemoryManager.h"
+#include "OCLEncodeDecode.h"
 
 
-template<typename T>  class OCLEncoder
+template<typename T>  class OCLEncoder :  public OCLEncodeDecode<T>
 {
 public:
 	OCLEncoder(ocl_args_d_t* ocl, bool isLossy);
 	~OCLEncoder(void);
 	void run(std::vector<T*> components,int w,int h, int levels);
-	tDeviceRC mapOutput(void** mappedPtr);
-	tDeviceRC unmapOutput(void* mappedPtr);
-	void finish(void);
 private:
-	ocl_args_d_t* _ocl;
-	bool lossy;
-	OCLMemoryManager<T>* memoryManager;
 	OCLDWTForward<T>* dwt;
 	
 };
