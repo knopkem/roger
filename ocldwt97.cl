@@ -189,7 +189,7 @@ inline void writePixel(float4 pix, LOCAL float*  restrict  dest) {
 
 // write row to destination
 void writeRowToOutput(LOCAL float* restrict currentScratch, write_only image2d_t odataLL, write_only image2d_t odata, 
-																		size_t firstX, size_t outputY, size_t width, size_t halfWidth){
+																		unsigned int firstX, unsigned int outputY, unsigned int width, unsigned int halfWidth){
 
 	int2 posOut = {firstX>>1, outputY};
 	for (int j = 0; j < WIN_SIZE_X; j+=2) {
@@ -213,14 +213,14 @@ void writeRowToOutput(LOCAL float* restrict currentScratch, write_only image2d_t
 }
 
 // initial scratch offset when transforming horizontally
-inline size_t getScratchOffset(){
+inline unsigned int getScratchOffset(){
    return (getLocalId(1)>> 1) + (getLocalId(1)&1) * BUFFER_SIZE;
 }
 
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
 void KERNEL run(read_only image2d_t idata, write_only image2d_t odataLL, write_only image2d_t odata, 
-                       const size_t  width, const size_t  height, const size_t steps) {
+                       const unsigned int  width, const unsigned int  height, const unsigned int steps) {
 
 	int inputY = getCorrectedGlobalIdY();
 	int outputY = -1;
@@ -451,7 +451,7 @@ void KERNEL run(read_only image2d_t idata, write_only image2d_t odataLL, write_o
 
 // write quantized low and high bands (relative to horizontal axis)
 void writeQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_only image2d_t odata, 
-													size_t firstX, size_t outputY, size_t width, size_t halfWidth,
+													unsigned int firstX, unsigned int outputY, unsigned int width, unsigned int halfWidth,
 													 const float quantLow, const float quantHigh){
 
 	int2 posOut = {firstX>>1, outputY};
@@ -480,7 +480,7 @@ void writeQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_only 
 // low band is not quantized, but high band is
 // odata is integer buffer (use quantization), while odataLL is float buffer (no quantization) 
 void writeMixedQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_only image2d_t odataLL,
-										 write_only image2d_t odata, size_t firstX, size_t outputY, size_t width, size_t halfWidth,
+										 write_only image2d_t odata, unsigned int firstX, unsigned int outputY, unsigned int width, unsigned int halfWidth,
 										  const float quantLow, const float quantHigh){
 
 	int2 posOut = {firstX>>1, outputY};
@@ -509,8 +509,8 @@ void writeMixedQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
 void KERNEL runWithQuantization(read_only image2d_t idata,  write_only image2d_t odataLL, write_only image2d_t odata,
-                       const size_t  width, const size_t height, const size_t steps,
-					   const size_t  level, const size_t levels, 
+                       const unsigned int  width, const unsigned int height, const unsigned int steps,
+					   const unsigned int  level, const unsigned int levels, 
 					   const float quantLL, const float quantLH, const float quantHH) {
 
 	int inputY = getCorrectedGlobalIdY();

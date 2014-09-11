@@ -42,10 +42,18 @@ template<typename T> void OCLDWTForward<T>::doRun(bool lossy, size_t w, size_t h
 
 	OCLKernel* targetKernel = lossy?forward97:forward53;
 	const size_t steps = divRndUp(w, 15 * windowX);
-	if (setKernelArgs(targetKernel,w,h,steps,level,levels) != DeviceSuccess)
+	if (setKernelArgs(targetKernel,static_cast<unsigned int>(w),
+									static_cast<unsigned int>(h),
+									static_cast<unsigned int>(steps),
+									static_cast<unsigned int>(level),
+									static_cast<unsigned int>(levels) 
+									) != DeviceSuccess)
 		return;
 	if (lossy) {
-		if (setKernelArgsQuant(targetKernel,level, levels, quantLL, quantLH, quantHH) != DeviceSuccess)
+		if (setKernelArgsQuant(targetKernel,
+				static_cast<unsigned int>(level), 
+				static_cast<unsigned int>(levels), quantLL, quantLH, quantHH) 
+				!= DeviceSuccess)
 			return;
 
 	}

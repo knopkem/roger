@@ -107,7 +107,7 @@ inline void writePixel(int4 pix, LOCAL int*  restrict  dest) {
 }
 
 // write row to destination
-void writeRowToOutput(LOCAL int* restrict currentScratch, write_only image2d_t odata,  write_only image2d_t odataLL, size_t firstX, size_t outputY, size_t width, size_t halfWidth){
+void writeRowToOutput(LOCAL int* restrict currentScratch, write_only image2d_t odata,  write_only image2d_t odataLL, unsigned int firstX, unsigned int outputY, unsigned int width, unsigned int halfWidth){
 
 	int2 posOut = {firstX>>1, outputY};
 	for (int j = 0; j < WIN_SIZE_X; j+=2) {
@@ -133,14 +133,14 @@ void writeRowToOutput(LOCAL int* restrict currentScratch, write_only image2d_t o
 
 
 // initial scratch offset when transforming vertically
-inline size_t getScratchOffset(){
+inline unsigned int getScratchOffset(){
    return (getLocalId(1)>> 1) + (getLocalId(1)&1) * BUFFER_SIZE;
 }
 
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
 void KERNEL run(read_only image2d_t idata, write_only image2d_t odataLL, write_only image2d_t odata,
-                       const size_t  width, const size_t height, const size_t steps) {
+                       const unsigned int  width, const unsigned int height, const unsigned int steps) {
 
 	int inputY = getCorrectedGlobalIdY();
 	int outputY = -1;
