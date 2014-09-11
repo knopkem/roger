@@ -40,10 +40,10 @@ template<typename T> OCLDWTRev<T>::~OCLDWTRev(void)
 }
 
 
-template<typename T> void OCLDWTRev<T>::run(bool lossy, int w,	int h, int windowX, int windowY) {
+template<typename T> void OCLDWTRev<T>::run(bool lossy, size_t w,	size_t h, size_t windowX, size_t windowY) {
 
 	OCLKernel* targetKernel = lossy?reverse97:reverse53;
-	const int steps = divRndUp(h, 15 * windowY);
+	const size_t steps = divRndUp(h, 15 * windowY);
 	setKernelArgs(targetKernel,w,h,steps,level);
     size_t local_work_size[3] = {windowX,1,1};
 	if (lossy) {

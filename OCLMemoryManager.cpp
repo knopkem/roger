@@ -50,39 +50,7 @@ template<typename T> void OCLMemoryManager<T>::fillHostInputBuffer(std::vector<T
 	}
 }
 
-
-template <typename T> tDeviceRC OCLMemoryManager<T>::copyLLBandToSrc(int nextLevel, int LLSizeX, int LLSizeY)
-{
-	
- // copy forward or reverse transformed LL band from output back into the input
-	size_t origin[] = { 0, 0, 0};
-	cl_int err = CL_SUCCESS;
-
-	// The region size in pixels
-	size_t region[] = {LLSizeX, LLSizeY, 1 };
-			
-	err = clEnqueueCopyImage  ( ocl->commandQueue, 	//copy command will be queued
-					dwtOut,		
-					*getDwtIn(nextLevel),		
-					origin,	    // origin of source image
-					origin,     // origin of destination image
-					region,		//(width, height, depth) in pixels of the 2D or 3D rectangle being copied
-					0,
-					NULL,
-					NULL);
-					
-	if (CL_SUCCESS != err)
-	{
-		LogError("Error: clEnqueueCopyImage (srcMem) returned %s.\n", TranslateOpenCLError(err));
-	}
-	
-	return err;
-
-}
-
-
-
-template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,	size_t w,	size_t h, int levels,bool lossy){
+template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,	size_t w,	size_t h, size_t levels,bool lossy){
 	if (w <=0 || h <= 0 || components.size() == 0 || levels <= 0)
 		return;
 
@@ -90,7 +58,7 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 		width = w;
 	    height = h;
 		_levels = levels;
-		int numDeviceChannels = components.size();
+		size_t numDeviceChannels = components.size();
 		freeBuffers();
 		cl_uint align = requiredOpenCLAlignment(ocl->device);
 		rgbBuffer = (T*)aligned_malloc(w*h*sizeof(T) * numDeviceChannels, 4*1024);

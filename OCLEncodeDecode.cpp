@@ -39,7 +39,7 @@ template<typename T> void OCLEncodeDecode<T>::finish(void){
 	clFinish(_ocl->commandQueue);
 }
 
-template<typename T> void OCLEncodeDecode<T>::run(std::vector<T*> components,int w,int h, int levels){
+template<typename T> void OCLEncodeDecode<T>::run(std::vector<T*> components,size_t w,size_t h, size_t levels){
 	memoryManager->init(components,w,h,levels,lossy);
 }
 

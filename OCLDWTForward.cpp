@@ -38,10 +38,10 @@ template<typename T> OCLDWTForward<T>::~OCLDWTForward(void)
 		delete forward97;
 }
 
-template<typename T> void OCLDWTForward<T>::doRun(bool lossy, int w, int h, int windowX, int windowY, int level, int levels, float quantLL, float quantLH, float quantHH) {
+template<typename T> void OCLDWTForward<T>::doRun(bool lossy, size_t w, size_t h, size_t windowX, size_t windowY, size_t level, size_t levels, float quantLL, float quantLH, float quantHH) {
 
 	OCLKernel* targetKernel = lossy?forward97:forward53;
-	const int steps = divRndUp(w, 15 * windowX);
+	const size_t steps = divRndUp(w, 15 * windowX);
 	if (setKernelArgs(targetKernel,w,h,steps,level,levels) != DeviceSuccess)
 		return;
 	if (lossy) {
@@ -67,13 +67,13 @@ template<typename T> void OCLDWTForward<T>::doRun(bool lossy, int w, int h, int 
 
 }
 
-template<typename T> void OCLDWTForward<T>::run(bool lossy, int w,	int h, int windowX, int windowY, int level, int levels, float quantLL, float quantLH, float quantHH) {
+template<typename T> void OCLDWTForward<T>::run(bool lossy, size_t w,	size_t h, size_t windowX, size_t windowY, size_t level, size_t levels, float quantLL, float quantLH, float quantHH) {
 
 	doRun(lossy, w,h,windowX, windowY,level,levels, quantLL, quantLH, quantHH);
 	if(level < levels-1) {
       // copy output's LL band back into input buffer
-      const int llSizeX = divRndUp(w, 2);
-      const int llSizeY = divRndUp(h, 2);
+      const size_t llSizeX = divRndUp(w, 2);
+      const size_t llSizeY = divRndUp(h, 2);
 
 	  level++;
 	  

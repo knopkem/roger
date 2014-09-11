@@ -28,7 +28,7 @@ public:
 	OCLDWTRev(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr);
 	~OCLDWTRev(void);
 
-	void run(bool lossy, int w,	int h,int windowX, int windowY);
+	void run(bool lossy, size_t w,	size_t h,size_t windowX, size_t windowY);
 private:
 
 	OCLKernel* reverse53;

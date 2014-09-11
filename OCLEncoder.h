@@ -27,7 +27,7 @@ template<typename T>  class OCLEncoder :  public OCLEncodeDecode<T>
 public:
 	OCLEncoder(ocl_args_d_t* ocl, bool isLossy);
 	~OCLEncoder(void);
-	void run(std::vector<T*> components,int w,int h, int levels);
+	void run(std::vector<T*> components,size_t w,size_t h, size_t levels);
 private:
 	OCLDWTForward<T>* dwt;
 	

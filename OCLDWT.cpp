@@ -20,7 +20,7 @@
 #include <stdint.h>
 
 
-inline int divRndUp(const int n, const int d) {
+inline size_t divRndUp(const size_t n, const size_t d) {
 	return n/d + !!(n % d); 
   }
 
@@ -41,7 +41,7 @@ template<typename T> OCLDWT<T>::~OCLDWT(void)
 }
 
 
-template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,unsigned int width, unsigned int height,int steps, int level, int levels){
+template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,size_t width, size_t height,size_t steps, size_t level, size_t levels){
 	numKernelArgs = 0;
 	cl_kernel targetKernel = myKernel->getKernel();
 	cl_int error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(cl_mem),  memoryManager->getDwtIn(level));
@@ -93,7 +93,7 @@ template<typename T> tDeviceRC OCLDWT<T>::setKernelArgs(OCLKernel* myKernel,unsi
 A note about resolution levels: For a transform with N resolution levels, resolution levels run from 0 up to N-1.
 
 **/
-template<typename T> tDeviceRC OCLDWT<T>::setKernelArgsQuant(OCLKernel* myKernel, int level, int levels, float quantLL, float quantLH, float quantHH){
+template<typename T> tDeviceRC OCLDWT<T>::setKernelArgsQuant(OCLKernel* myKernel, size_t level, size_t levels, float quantLL, float quantLH, float quantHH){
 
 	cl_kernel targetKernel = myKernel->getKernel();
 	cl_int error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(level), &level);

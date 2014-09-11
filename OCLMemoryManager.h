@@ -28,19 +28,17 @@ public:
 	~OCLMemoryManager(void);
 	size_t getWidth() {return width;}
 	size_t getHeight() {return height;}
-	int    getNumLevels() {return _levels;}
+	size_t    getNumLevels() {return _levels;}
 	cl_mem* getOutput(){ return &out;}
-	cl_mem* getDwtIn(int level){
+	cl_mem* getDwtIn(size_t level){
 		if (level >= dwtIn.size())
 			return NULL;
 		return &dwtIn[level];
 	}
-	void init(std::vector<T*> components, size_t w, size_t h, int levels, bool lossy);
+	void init(std::vector<T*> components, size_t w, size_t h, size_t levels, bool lossy);
 
 	tDeviceRC mapImage(cl_mem img, void** mappedPtr);
 	tDeviceRC unmapImage(cl_mem, void* mappedPtr);
-
-	tDeviceRC copyLLBandToSrc(int nextLevel, int LLSizeX, int LLSizeY);
 
 private:
 	tDeviceRC hostToDWTIn();
@@ -51,7 +49,7 @@ private:
 	ocl_args_d_t* ocl;
 	size_t width;
 	size_t height;
-	int _levels;
+	size_t _levels;
  
 	std::vector<cl_mem> dwtIn;  
 	cl_mem out;  //could be dwt or dwt + quantization
