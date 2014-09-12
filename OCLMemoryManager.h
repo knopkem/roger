@@ -29,7 +29,7 @@ public:
 	size_t getWidth() {return width;}
 	size_t getHeight() {return height;}
 	size_t    getNumLevels() {return _levels;}
-	cl_mem* getOutput(){ return &out;}
+	cl_mem* getDWTOut(){ return &dwtOut;}
 	cl_mem* getDwtIn(size_t level){
 		if (level >= dwtIn.size())
 			return NULL;
@@ -52,7 +52,7 @@ private:
 	size_t _levels;
  
 	std::vector<cl_mem> dwtIn;  
-	cl_mem out;  //could be dwt or dwt + quantization
+	cl_mem dwtOut;  //could be dwt or dwt + quantization
 
 };
 

@@ -122,7 +122,7 @@ template<typename T, typename U> void OCLTest<T,U>::test()
 
 	}
 
-	encoder->unmapOutput(results);
+	encoder->unmapDWTOut(results);
 	delete[] input;
 
     imshow("After:", img_dst);
@@ -150,6 +150,6 @@ template<typename T, typename U> void OCLTest<T,U>::testFinish() {
 
 template<typename T, typename U> U* OCLTest<T,U>::getTestResults(){
 	void* ptr;
-	encoder->mapOutput(&ptr);
+	encoder->mapDWTOut(&ptr);
 	return (U*)ptr;
 }

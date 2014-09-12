@@ -26,8 +26,8 @@ public:
 	OCLEncodeDecode(ocl_args_d_t* ocl, bool isLossy);
 	~OCLEncodeDecode(void);
 
-	tDeviceRC mapOutput(void** mappedPtr);
-	tDeviceRC unmapOutput(void* mappedPtr);
+	tDeviceRC mapDWTOut(void** mappedPtr);
+	tDeviceRC unmapDWTOut(void* mappedPtr);
 	void finish(void);
 protected:
 	void run(std::vector<T*> components,size_t w,size_t h, size_t levels);

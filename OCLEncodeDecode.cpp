@@ -43,11 +43,11 @@ template<typename T> void OCLEncodeDecode<T>::run(std::vector<T*> components,siz
 	memoryManager->init(components,w,h,levels,lossy);
 }
 
-template<typename T>  tDeviceRC OCLEncodeDecode<T>::mapOutput(void** mappedPtr){
-	return memoryManager->mapImage(*memoryManager->getOutput(), mappedPtr);
+template<typename T>  tDeviceRC OCLEncodeDecode<T>::mapDWTOut(void** mappedPtr){
+	return memoryManager->mapImage(*memoryManager->getDWTOut(), mappedPtr);
 }
-template<typename T> tDeviceRC OCLEncodeDecode<T>::unmapOutput(void* mappedPtr){
+template<typename T> tDeviceRC OCLEncodeDecode<T>::unmapDWTOut(void* mappedPtr){
 
-	return memoryManager->unmapImage(*memoryManager->getOutput(), mappedPtr);
+	return memoryManager->unmapImage(*memoryManager->getDWTOut(), mappedPtr);
 }
 
