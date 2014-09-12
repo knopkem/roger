@@ -20,10 +20,12 @@
 #include "OCLUtil.h"
 #include "OCLMemoryManager.cpp"
 #include "OCLEncodeDecode.cpp"
+#include "OCLBPC.cpp"
 
 
 template<typename T> OCLEncoder<T>::OCLEncoder(ocl_args_d_t* ocl, bool isLossy) : OCLEncodeDecode<T>(ocl, isLossy),
-	dwt(new OCLDWTForward<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=8 -D WIN_SIZE_Y=128"), memoryManager))
+	dwt(new OCLDWTForward<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=8 -D WIN_SIZE_Y=128"), memoryManager)),
+	bpc(new OCLBPC<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=8 -D WIN_SIZE_Y=128"), memoryManager))
 {
 
 }
@@ -32,9 +34,12 @@ template<typename T> OCLEncoder<T>::OCLEncoder(ocl_args_d_t* ocl, bool isLossy) 
 template<typename T> OCLEncoder<T>::~OCLEncoder(){
 	if (dwt)
 		delete dwt;
+	if (bpc)
+		delete bpc;
 }
 
 template<typename T> void OCLEncoder<T>::run(std::vector<T*> components,size_t w,size_t h, size_t levels){
 	OCLEncodeDecode::run(components,w,h,levels);
 	dwt->run(lossy, w,h, 8,128,0,levels, 1,1,1);
+	bpc->run(32,32);
 }

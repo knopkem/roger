@@ -20,6 +20,7 @@ struct ocl_args_d_t;
 #include <vector>
 #include "OCLMemoryManager.h"
 #include "OCLEncodeDecode.h"
+#include "OCLBPC.h"
 
 
 template<typename T>  class OCLEncoder :  public OCLEncodeDecode<T>
@@ -30,5 +31,6 @@ public:
 	void run(std::vector<T*> components,size_t w,size_t h, size_t levels);
 private:
 	OCLDWTForward<T>* dwt;
+	OCLBPC<T>* bpc;
 	
 };

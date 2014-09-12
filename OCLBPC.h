@@ -13,25 +13,23 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
-#include "opencv2/core/core.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/highgui/highgui.hpp"
+#pragma once
 
-#include "OCLTest.cpp"
+#include "OCLKernel.h"
+#include "OCLMemoryManager.h"
 
-using namespace cv;
 
-#include "OCLUtil.h"
-#include "OCLTest.h"
 
-extern bool quiet;
-
-int main(int argc, char* argv[])
+template<typename T> class OCLBPC
 {
-	OCLTest<float,int> oclTester(true);
-	oclTester.test();
-    LogInfo("Done.\n");
-
-    return 0;
-}
+public:
+	OCLBPC(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr);
+	~OCLBPC(void);
+	void run(size_t codeblockX, size_t codeblockY);
+private:
+	tDeviceRC setKernelArgs(unsigned int codeblockX, unsigned int codeblockY);
+	KernelInitInfoBase initInfo;
+	OCLMemoryManager<T>* memoryManager;
+	OCLKernel* bpc;
+};
 

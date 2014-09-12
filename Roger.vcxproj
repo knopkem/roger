@@ -161,11 +161,13 @@
     <Intel_OpenCL_Build_Rules Include="ocldwt97rev.cl">
       <OTHER Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-D WIN_SIZE_X=128 -D WIN_SIZE_Y=8</OTHER>
     </Intel_OpenCL_Build_Rules>
+    <Intel_OpenCL_Build_Rules Include="oclbpc.cl" />
     <Intel_OpenCL_Build_Rules Include="ocl_platform.cl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="concurrent_queue.h" />
     <ClInclude Include="OCLBasic.h" />
+    <ClInclude Include="OCLBPC.h" />
     <ClInclude Include="OCLDataTransferManager.h" />
     <ClInclude Include="OCLDecoder.h" />
     <ClInclude Include="OCLDeviceManager.h" />
@@ -184,6 +186,7 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="OCLBasic.cpp" />
+    <ClCompile Include="OCLBPC.cpp" />
     <ClCompile Include="OCLDataTransferManager.cpp" />
     <ClCompile Include="OCLDecoder.cpp" />
     <ClCompile Include="OCLDeviceManager.cpp" />

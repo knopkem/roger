@@ -13,25 +13,34 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
-#include "opencv2/core/core.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/highgui/highgui.hpp"
 
-#include "OCLTest.cpp"
+#include "ocl_platform.cl"
 
-using namespace cv;
+// simulate OpenCL 2.0 _any functionality
+/*
+void KERNEL test(void) {
+  LOCAL char ControlBit;
+  localMemoryFence();
+   if(true)
+      ControlBit |= 0x1;
+   /// ...
+   localMemoryFence();
+   /// ...
+   if(ControlBit) {
 
-#include "OCLUtil.h"
-#include "OCLTest.h"
-
-extern bool quiet;
-
-int main(int argc, char* argv[])
-{
-	OCLTest<float,int> oclTester(true);
-	oclTester.test();
-    LogInfo("Done.\n");
-
-    return 0;
+	} else {
+		
+	}
 }
+*/
+
+void KERNEL run(read_only image2d_t idata, const unsigned int  width, const unsigned int height, const unsigned int  codeblockX, const unsigned int codeblockY) {
+
+
+
+
+
+}
+
+
 
