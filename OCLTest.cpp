@@ -81,7 +81,7 @@ template<typename T, typename U> void OCLTest<T,U>::test()
 
 	T* input = new T[imageSize];
     for (int i = 0; i < imageSize; ++i) {
-        input[i] = (T)(lossy ?  img_src.data[i] - 128 : ((img_src.data[i] - 128) * 4));
+        input[i] = img_src.data[i] - 128;
     }
 
 	//simulate RGB image
@@ -110,7 +110,7 @@ template<typename T, typename U> void OCLTest<T,U>::test()
 	if (results) {
 		size_t resultsIndex=0;
 		for (int i = 0; i < imageSize; ++i){
-			int temp =  lossy ? results[resultsIndex] + 128 : ((results[resultsIndex]/4) + 128);
+			int temp =  results[resultsIndex] + 128 ;
 			if (temp < 0)
 				temp = 0;
 			if (temp > 255)

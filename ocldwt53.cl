@@ -91,12 +91,12 @@ inline int getCorrectedGlobalIdY() {
 
 
 // read pixel from local buffer
-int4 readPixel( LOCAL int*  restrict  src) {
+int4 readPixel( LOCAL short*  restrict  src) {
 	return (int4)(*src, *(src+CHANNEL_BUFFER_SIZE),  *(src+CHANNEL_BUFFER_SIZE_X2),  *(src+CHANNEL_BUFFER_SIZE_X3)) ;
 }
 
 //write pixel to column
-inline void writePixel(int4 pix, LOCAL int*  restrict  dest) {
+inline void writePixel(int4 pix, LOCAL short*  restrict  dest) {
 	*dest = pix.x;
 	dest += CHANNEL_BUFFER_SIZE;
 	*dest = pix.y;
@@ -107,7 +107,7 @@ inline void writePixel(int4 pix, LOCAL int*  restrict  dest) {
 }
 
 // write row to destination
-void writeRowToOutput(LOCAL int* restrict currentScratch, write_only image2d_t odata,  write_only image2d_t odataLL, unsigned int firstX, unsigned int outputY, unsigned int width, unsigned int halfWidth){
+void writeRowToOutput(LOCAL short* restrict currentScratch, write_only image2d_t odata,  write_only image2d_t odataLL, unsigned int firstX, unsigned int outputY, unsigned int width, unsigned int halfWidth){
 
 	int2 posOut = {firstX>>1, outputY};
 	for (int j = 0; j < WIN_SIZE_X; j+=2) {
@@ -148,7 +148,7 @@ void KERNEL run(read_only image2d_t idata, write_only image2d_t odataLL, write_o
 	    outputY = (inputY >> 1) + (inputY & 1)*( height >> 1);
 
     const unsigned int halfWidth = width >> 1;
-	LOCAL int scratch[PIXEL_BUFFER_SIZE];
+	LOCAL short scratch[PIXEL_BUFFER_SIZE];
 	const float xDelta = 1.0/(width-1);
 	int firstX = getGlobalId(0) * (steps * WIN_SIZE_X);
 
@@ -175,7 +175,7 @@ void KERNEL run(read_only image2d_t idata, write_only image2d_t odataLL, write_o
 	for (int i = 0; i < steps; ++i) {
 
 		// 1. read from source image, transform columns, and store in local scratch
-		LOCAL int* currentScratch = scratch + getScratchOffset();
+		LOCAL short* currentScratch = scratch + getScratchOffset();
 		for (int j = 0; j < WIN_SIZE_X; j+=2) {
 	   
 			///////////////////////////////////////////////////////////////////////////////////////////
@@ -198,7 +198,7 @@ void KERNEL run(read_only image2d_t idata, write_only image2d_t odataLL, write_o
 			// update current (even)
 			// F.3, page 118, ITU-T Rec. T.800 final draft
 			// note 8 = 2 << 2, which we need to do because the data is left shifted by 2
-			current += (previous + next + 8) >> 2; 
+			current += (previous + next + 2) >> 2; 
 
 	
 
@@ -243,7 +243,7 @@ void KERNEL run(read_only image2d_t idata, write_only image2d_t odataLL, write_o
 				int4 currentEven = readPixel(currentScratch);
 				int4 prevOdd = readPixel(currentScratch + VERTICAL_EVEN_TO_PREVIOUS_ODD);
 				int4 nextOdd = readPixel(currentScratch + VERTICAL_EVEN_TO_NEXT_ODD); 
-				currentEven += (prevOdd + nextOdd + 8) >> 2; // note 8 = 2 << 2, which we need to do because the data is left shifted by 2
+				currentEven += (prevOdd + nextOdd + 2) >> 2; 
 				writePixel( currentEven, currentScratch);
 				currentScratch += HORIZONTAL_STRIDE;
 			}

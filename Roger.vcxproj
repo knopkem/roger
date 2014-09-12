@@ -146,6 +146,9 @@
     <PostBuildEvent>
       <Command>copy "*.cl" "$(OutDir)\"</Command>
     </PostBuildEvent>
+    <Intel_OpenCL_Build_Rules>
+      <TOS />
+    </Intel_OpenCL_Build_Rules>
   </ItemDefinitionGroup>
   <ItemGroup>
     <Intel_OpenCL_Build_Rules Include="ocldwt53.cl">
