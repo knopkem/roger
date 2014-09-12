@@ -39,8 +39,8 @@ template<typename T> void OCLEncodeDecode<T>::finish(void){
 	clFinish(_ocl->commandQueue);
 }
 
-template<typename T> void OCLEncodeDecode<T>::run(std::vector<T*> components,size_t w,size_t h, size_t levels){
-	memoryManager->init(components,w,h,levels,lossy);
+template<typename T> void OCLEncodeDecode<T>::run(std::vector<T*> components,size_t w,size_t h, size_t levels, size_t precision){
+	memoryManager->init(components,w,h,levels,lossy,precision);
 }
 
 template<typename T>  tDeviceRC OCLEncodeDecode<T>::mapDWTOut(void** mappedPtr){

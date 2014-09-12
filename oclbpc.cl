@@ -34,9 +34,13 @@ void KERNEL test(void) {
 }
 */
 
-void KERNEL run(read_only image2d_t idata, const unsigned int  width, const unsigned int height, const unsigned int  codeblockX, const unsigned int codeblockY) {
+CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
 
+void KERNEL run(read_only image2d_t idata, const unsigned int  width, const unsigned int height, const unsigned int  codeblockX, const unsigned int codeblockY, const unsigned int precision) {
 
+    //find max bit plane number
+	LOCAL char foundBitPlane;
+	foundBitPlane = 0;
 
 
 

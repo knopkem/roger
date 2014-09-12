@@ -28,14 +28,15 @@ public:
 	~OCLMemoryManager(void);
 	size_t getWidth() {return width;}
 	size_t getHeight() {return height;}
-	size_t    getNumLevels() {return _levels;}
+	size_t getNumLevels() {return _levels;}
+	size_t getPrecision() {return _precision;}  
 	cl_mem* getDWTOut(){ return &dwtOut;}
 	cl_mem* getDwtIn(size_t level){
 		if (level >= dwtIn.size())
 			return NULL;
 		return &dwtIn[level];
 	}
-	void init(std::vector<T*> components, size_t w, size_t h, size_t levels, bool lossy);
+	void init(std::vector<T*> components, size_t w, size_t h, size_t levels, bool lossy, size_t precision);
 
 	tDeviceRC mapImage(cl_mem img, void** mappedPtr);
 	tDeviceRC unmapImage(cl_mem, void* mappedPtr);
@@ -50,6 +51,7 @@ private:
 	size_t width;
 	size_t height;
 	size_t _levels;
+	size_t _precision;
  
 	std::vector<cl_mem> dwtIn;  
 	cl_mem dwtOut;  //could be dwt or dwt + quantization

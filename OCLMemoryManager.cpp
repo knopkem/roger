@@ -50,14 +50,15 @@ template<typename T> void OCLMemoryManager<T>::fillHostInputBuffer(std::vector<T
 	}
 }
 
-template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,	size_t w,	size_t h, size_t levels,bool lossy){
+template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,	size_t w,	size_t h, size_t levels,bool lossy, size_t precision){
 	if (w <=0 || h <= 0 || components.size() == 0 || levels <= 0)
 		return;
 
-	if (w != width || h != height || levels != _levels) {
+	if (w != width || h != height || levels != _levels || precision != _precision) {
 		width = w;
 	    height = h;
 		_levels = levels;
+		_precision = precision;
 		size_t numDeviceChannels = components.size();
 		freeBuffers();
 		cl_uint align = requiredOpenCLAlignment(ocl->device);

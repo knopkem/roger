@@ -35,7 +35,7 @@ template<typename T> OCLDecoder<T>::~OCLDecoder(){
 		delete dwt;
 }
 
-template<typename T> void OCLDecoder<T>::run(std::vector<T*> components,size_t w,size_t h, size_t levels){
+template<typename T> void OCLDecoder<T>::run(std::vector<T*> components,size_t w,size_t h, size_t levels, size_t precision){
 	OCLEncodeDecode::run(components,w,h,levels);
 	dwt->run(lossy, w,h, 128,8);
 }

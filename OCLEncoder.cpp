@@ -38,8 +38,8 @@ template<typename T> OCLEncoder<T>::~OCLEncoder(){
 		delete bpc;
 }
 
-template<typename T> void OCLEncoder<T>::run(std::vector<T*> components,size_t w,size_t h, size_t levels){
-	OCLEncodeDecode::run(components,w,h,levels);
+template<typename T> void OCLEncoder<T>::run(std::vector<T*> components,size_t w,size_t h, size_t levels, size_t precision){
+	OCLEncodeDecode::run(components,w,h,levels,precision);
 	dwt->run(lossy, w,h, 8,128,0,levels, 1,1,1);
 	bpc->run(32,32);
 }

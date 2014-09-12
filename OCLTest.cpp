@@ -92,15 +92,16 @@ template<typename T, typename U> void OCLTest<T,U>::test()
 	components.push_back(input);
 
 	int levels = 5;
+	int precision = 8;
 	 
 	//dont time the first run
-	testRun(components, img_src.cols, img_src.rows,levels);
+	testRun(components, img_src.cols, img_src.rows,levels,precision);
 	testFinish();
 
 	double t = my_clock();
 	int numIterations = 40;
 	for (int j =0; j < numIterations; ++j) { 
-	   testRun(components, img_src.cols, img_src.rows,levels);
+	   testRun(components, img_src.cols, img_src.rows,levels,precision);
 	   testFinish();
 	}
 	t = my_clock() - t;
@@ -140,8 +141,8 @@ template<typename T, typename U> void OCLTest<T,U>::testInit() {
 }
 
 
-template<typename T, typename U> void OCLTest<T,U>::testRun(std::vector<T*> components,size_t w,size_t h, size_t levels) {
-	encoder->run(components,w,h, levels);
+template<typename T, typename U> void OCLTest<T,U>::testRun(std::vector<T*> components,size_t w,size_t h, size_t levels, size_t precision) {
+	encoder->run(components,w,h, levels,precision);
 }
 
 template<typename T, typename U> void OCLTest<T,U>::testFinish() {
