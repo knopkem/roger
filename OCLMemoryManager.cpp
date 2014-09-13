@@ -90,7 +90,7 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 
 		cl_image_format format;
 		format.image_channel_order = numDeviceChannels == 4 ? CL_RGBA : CL_R;
-		format.image_channel_data_type = lossy ? CL_SIGNED_INT32 : CL_SIGNED_INT16;
+		format.image_channel_data_type = CL_SIGNED_INT32;
 		dwtOut = clCreateImage (context, CL_MEM_READ_WRITE, &format, &desc, NULL,&error_code);
 		if (CL_SUCCESS != error_code)
 		{
