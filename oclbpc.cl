@@ -16,33 +16,33 @@
 
 #include "ocl_platform.cl"
 
-// simulate OpenCL 2.0 _any functionality
-/*
-void KERNEL test(void) {
-  LOCAL char ControlBit;
-  localMemoryFence();
-   if(true)
-      ControlBit |= 0x1;
-   /// ...
-   localMemoryFence();
-   /// ...
-   if(ControlBit) {
-
-	} else {
-		
-	}
-}
-*/
 
 CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
 
 void KERNEL run(read_only image2d_t idata, const unsigned int  width, const unsigned int height, const unsigned int  codeblockX, const unsigned int codeblockY, const unsigned int precision) {
 
     //find max bit plane number
-	LOCAL char foundBitPlane;
-	foundBitPlane = 0;
+	LOCAL char msb;
+	msb = 0;
+	int2 posIn = (int2)(getLocalId(0) + getGlobalId(0)*codeblockX, getLocalId(1) + getGlobalId(1)*codeblockY);
+	int4 val = read_imagei(idata, sampler, posIn);
+	int4 pixelMsb = 32 - clz(val);  // between one and 32
+	int currentBit = 32;            // between one and 32 
 
+	// wait until all work items have unset msb
+	localMemoryFence();
 
+	while(!msb && currentBit) {  
+	     if (pixelMsb.x == currentBit){
+		    msb = currentBit;
+		}
+		// wait to see if any work item has set msb in this iteration
+		localMemoryFence();
+
+        currentBit--;
+	}
+	//now we know the msb for the x channel of this code block
+	
 
 }
 
