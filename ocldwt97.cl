@@ -66,14 +66,16 @@ Right (odd) boundary row
 #define VERTICAL_ODD_TO_NEXT_EVEN     -511
 #define VERTICAL_ODD_TO_NEXT_EVEN_PLUS_ONE     -510
 
-CONSTANT float P1 = -1.586134342;   ///< forward 9/7 predict 1
-CONSTANT float U1 = -0.05298011854;  ///< forward 9/7 update 1
-CONSTANT float P2 = 0.8829110762;   ///< forward 9/7 predict 2
-CONSTANT float U2 = 0.4435068522;    ///< forward 9/7 update 2
-CONSTANT float U1P1 = 0.08403358545952490068;
+#define P1  -1.586134342f 
+#define U1  -0.05298011854f  
+#define P2  0.8829110762f 
+#define U2  0.4435068522f   
 
-CONSTANT float scale97Mul = 1.23017410491400f;
-CONSTANT float scale97Div = 1.0 / 1.23017410491400f;
+// U1 * P1
+#define U1P1  0.08403358545952490068f
+
+#define scale97Mul  1.23017410491400f
+#define scale97Div   0.81289306611596153187273657637352f
 
 /*
 
