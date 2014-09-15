@@ -81,7 +81,7 @@ template<typename T, typename U> void OCLTest<T,U>::test()
 
 	T* input = new T[imageSize];
     for (int i = 0; i < imageSize; ++i) {
-        input[i] = img_src.data[i] - 128;
+        input[i] = (T)(img_src.data[i] - 128);
     }
 
 	//simulate RGB image
