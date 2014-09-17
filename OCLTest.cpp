@@ -34,7 +34,10 @@ using namespace cv;
 #define OCL_SAMPLE_IMAGE_NAME "baboon.png"
 
 
-template<typename T, typename U>  OCLTest<T,U>::OCLTest(bool isLossy) : encoder(NULL), decoder(NULL), lossy(isLossy)
+template<typename T, typename U>  OCLTest<T,U>::OCLTest(bool isLossy, bool outputDwt) : encoder(NULL),
+																						decoder(NULL),
+																						lossy(isLossy),
+																						outputDwt(outputDwt)
 {
 }
 
@@ -111,7 +114,7 @@ template<typename T, typename U> void OCLTest<T,U>::test()
 	if (results) {
 		size_t resultsIndex=0;
 		for (int i = 0; i < imageSize; ++i){
-			int temp =  results[resultsIndex] + 128 ;
+			int temp =  (int)(results[resultsIndex] + 128) ;
 			if (temp < 0)
 				temp = 0;
 			if (temp > 255)
@@ -136,7 +139,7 @@ template<typename T, typename U> void OCLTest<T,U>::test()
 template<typename T, typename U> void OCLTest<T,U>::testInit() {
 	OCLDeviceManager* deviceManager = new OCLDeviceManager();
 	deviceManager->init();
-	encoder = new OCLEncoder<T>(deviceManager->getInfo(), lossy);
+	encoder = new OCLEncoder<T>(deviceManager->getInfo(), lossy, outputDwt);
 	decoder = new OCLDecoder<T>(deviceManager->getInfo(), lossy);
 }
 

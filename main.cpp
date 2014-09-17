@@ -28,7 +28,7 @@ extern bool quiet;
 
 int main(int argc, char* argv[])
 {
-	OCLTest<float,short> oclTester(true);
+	OCLTest<float,float> oclTester(true, true);
 	oclTester.test();
     LogInfo("Done.\n");
 

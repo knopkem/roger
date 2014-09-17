@@ -22,10 +22,10 @@
 
 
 
-template<typename T> OCLEncodeDecode<T>::OCLEncodeDecode(ocl_args_d_t* ocl, bool isLossy) :
+template<typename T> OCLEncodeDecode<T>::OCLEncodeDecode(ocl_args_d_t* ocl, bool isLossy, bool outputDwt) :
 	_ocl(ocl), 
 	lossy(isLossy),
-	memoryManager(new OCLMemoryManager<T>(ocl))
+	memoryManager(new OCLMemoryManager<T>(ocl, isLossy, outputDwt))
 {
 
 }
@@ -40,7 +40,7 @@ template<typename T> void OCLEncodeDecode<T>::finish(void){
 }
 
 template<typename T> void OCLEncodeDecode<T>::run(std::vector<T*> components,size_t w,size_t h, size_t levels, size_t precision){
-	memoryManager->init(components,w,h,levels,lossy,precision);
+	memoryManager->init(components,w,h,levels,precision);
 }
 
 template<typename T>  tDeviceRC OCLEncodeDecode<T>::mapDWTOut(void** mappedPtr){
@@ -48,6 +48,6 @@ template<typename T>  tDeviceRC OCLEncodeDecode<T>::mapDWTOut(void** mappedPtr){
 }
 template<typename T> tDeviceRC OCLEncodeDecode<T>::unmapDWTOut(void* mappedPtr){
 
-	return memoryManager->unmapImage(*memoryManager->getDWTOut(), mappedPtr);
+	return memoryManager->unmapMemory(*memoryManager->getDWTOut(), mappedPtr);
 }
 

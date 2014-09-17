@@ -23,7 +23,7 @@ struct ocl_args_d_t;
 template<typename T>  class OCLEncodeDecode
 {
 public:
-	OCLEncodeDecode(ocl_args_d_t* ocl, bool isLossy);
+	OCLEncodeDecode(ocl_args_d_t* ocl, bool isLossy, bool outputDwt);
 	~OCLEncodeDecode(void);
 
 	tDeviceRC mapDWTOut(void** mappedPtr);

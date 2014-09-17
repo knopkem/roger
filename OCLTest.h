@@ -22,7 +22,7 @@
 template< typename T, typename U > class OCLTest
 {
 public:
-	OCLTest(bool lossy);
+	OCLTest(bool lossy, bool outputDwt);
 	~OCLTest(void);
 
 	void test();
@@ -35,6 +35,7 @@ private:
 	OCLEncoder<T>* encoder;
 	OCLDecoder<T>* decoder;
 	bool lossy;
+	bool outputDwt;
 
 };
 

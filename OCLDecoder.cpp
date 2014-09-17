@@ -24,7 +24,7 @@
 
 
 
-template<typename T> OCLDecoder<T>::OCLDecoder(ocl_args_d_t* ocl, bool isLossy) : OCLEncodeDecode<T>(ocl,lossy),
+template<typename T> OCLDecoder<T>::OCLDecoder(ocl_args_d_t* ocl, bool isLossy) : OCLEncodeDecode<T>(ocl,lossy,false),
 	dwt(new OCLDWTRev<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=128 -D WIN_SIZE_Y=8"), memoryManager))
 {
 

@@ -19,12 +19,16 @@
 #include <math.h>
 #include "OCLBasic.h"
 
-template<typename T> OCLMemoryManager<T>::OCLMemoryManager(ocl_args_d_t* ocl) :ocl(ocl),      
+template<typename T> OCLMemoryManager<T>::OCLMemoryManager(ocl_args_d_t* ocl, bool lossy, bool outputDwt) :ocl(ocl),      
 	                                        rgbBuffer(NULL),
 											width(0),
 											height(0),
 											_levels(0),
-											dwtOut(0)
+											_precision(0),
+											numComponents(0),
+											lossy(lossy),
+											dwtOut(0),
+											outputDwt(outputDwt)
 {
 }
 
@@ -50,7 +54,7 @@ template<typename T> void OCLMemoryManager<T>::fillHostInputBuffer(std::vector<T
 	}
 }
 
-template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,	size_t w,	size_t h, size_t levels,bool lossy, size_t precision){
+template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,	size_t w,	size_t h, size_t levels,size_t precision){
 	if (w <=0 || h <= 0 || components.size() == 0 || levels <= 0)
 		return;
 
@@ -59,10 +63,10 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 	    height = h;
 		_levels = levels;
 		_precision = precision;
-		size_t numDeviceChannels = components.size();
+		numComponents = components.size();
 		freeBuffers();
 		cl_uint align = requiredOpenCLAlignment(ocl->device);
-		rgbBuffer = (T*)aligned_malloc(w*h*sizeof(T) * numDeviceChannels, 4*1024);
+		rgbBuffer = (T*)aligned_malloc(w*h*sizeof(T) * numComponents, 4*1024);
 
 		fillHostInputBuffer(components,w,h);
 
@@ -89,8 +93,8 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 		desc.buffer = NULL;
 
 		cl_image_format format;
-		format.image_channel_order = numDeviceChannels == 4 ? CL_RGBA : CL_R;
-		format.image_channel_data_type = CL_SIGNED_INT16;
+		format.image_channel_order = numComponents == 4 ? CL_RGBA : CL_R;
+		format.image_channel_data_type = (outputDwt && lossy) ? CL_FLOAT : CL_SIGNED_INT16;
 		dwtOut = clCreateImage (context, CL_MEM_READ_WRITE, &format, &desc, NULL,&error_code);
 		if (CL_SUCCESS != error_code)
 		{
@@ -161,7 +165,35 @@ template<typename T> tDeviceRC OCLMemoryManager<T>::mapImage(cl_mem img, void** 
 	return error_code;
 }
 
-template<typename T> tDeviceRC OCLMemoryManager<T>::unmapImage(cl_mem img, void* mappedPtr){
+
+
+template<typename T> tDeviceRC OCLMemoryManager<T>::mapBuffer(cl_mem buffer, void** mappedPtr){
+	if (!mappedPtr)
+		return -1;
+
+	cl_int error_code = CL_SUCCESS;
+    *mappedPtr = clEnqueueMapImage(   ocl->commandQueue,
+                                            buffer,
+                                            CL_TRUE,
+                                            CL_MAP_READ,
+                                            0,
+                                            width*height*sizeof(short),
+                                            0
+                                            NULL,
+                                            NULL,
+                                            &error_code);
+    if (CL_SUCCESS != error_code)
+    {
+        LogError("Error: clEnqueueMapImage return %s.\n", TranslateOpenCLError(error_code));
+
+    }
+
+	return error_code;
+}
+
+
+
+template<typename T> tDeviceRC OCLMemoryManager<T>::unmapMemory(cl_mem img, void* mappedPtr){
 	if (!mappedPtr)
 		return -1;
 
@@ -174,6 +206,10 @@ template<typename T> tDeviceRC OCLMemoryManager<T>::unmapImage(cl_mem img, void*
 	return error_code;	
 
 }
+
+
+
+
 
 template<typename T> void OCLMemoryManager<T>::freeBuffers(){
 	if (rgbBuffer) {

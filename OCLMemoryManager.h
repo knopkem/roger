@@ -24,22 +24,27 @@
 template< typename T >  class OCLMemoryManager
 {
 public:
-	OCLMemoryManager(ocl_args_d_t* ocl);
+	OCLMemoryManager(ocl_args_d_t* ocl, bool lossy, bool outputDwt);
 	~OCLMemoryManager(void);
 	size_t getWidth() {return width;}
 	size_t getHeight() {return height;}
 	size_t getNumLevels() {return _levels;}
-	size_t getPrecision() {return _precision;}  
+	size_t getPrecision() {return _precision;}
+	bool doOutputDwt() { return outputDwt;}
 	cl_mem* getDWTOut(){ return &dwtOut;}
 	cl_mem* getDwtIn(size_t level){
 		if (level >= dwtIn.size())
 			return NULL;
 		return &dwtIn[level];
 	}
-	void init(std::vector<T*> components, size_t w, size_t h, size_t levels, bool lossy, size_t precision);
+	void init(std::vector<T*> components, size_t w, size_t h, size_t levels, size_t precision);
 
 	tDeviceRC mapImage(cl_mem img, void** mappedPtr);
-	tDeviceRC unmapImage(cl_mem, void* mappedPtr);
+	tDeviceRC mapBuffer(cl_mem buffer, void** mappedPtr);
+	tDeviceRC unmapMemory(cl_mem, void* mappedPtr);
+
+
+
 
 private:
 	tDeviceRC hostToDWTIn();
@@ -52,9 +57,12 @@ private:
 	size_t height;
 	size_t _levels;
 	size_t _precision;
+	size_t numComponents;
+	bool lossy;
  
 	std::vector<cl_mem> dwtIn;  
 	cl_mem dwtOut;  //could be dwt or dwt + quantization
+	bool outputDwt;
 
 };
 
