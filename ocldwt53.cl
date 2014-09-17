@@ -107,12 +107,37 @@ inline void writePixel(int4 pix, LOCAL short*  restrict  dest) {
 }
 
 // write row to destination
-void writeRowToOutput(LOCAL short* restrict currentScratch, write_only image2d_t odata,  write_only image2d_t odataLL, unsigned int firstX, unsigned int outputY, unsigned int width, unsigned int halfWidth){
+void writeRowToOutput(LOCAL short* restrict currentScratch, write_only image2d_t odata, unsigned int firstX, unsigned int outputY, unsigned int width, unsigned int halfWidth){
 
 	int2 posOut = {firstX>>1, outputY};
 	for (int j = 0; j < WIN_SIZE_X; j+=2) {
 	
-	    // even row
+	    // low pass
+		
+		//only need to check evens, since even point will be the first out of bound point
+	    if (posOut.x >= halfWidth)
+			break;
+
+		write_imagei(odata, posOut,readPixel(currentScratch));
+
+		// high pass
+		currentScratch += HORIZONTAL_STRIDE ;
+		posOut.x+= halfWidth;
+
+		write_imagei(odata, posOut, readPixel(currentScratch));
+
+		currentScratch += HORIZONTAL_STRIDE;
+		posOut.x -= (halfWidth - 1);
+	}
+}
+
+// write row to destination
+void writeRowToMixedOutput(LOCAL short* restrict currentScratch, write_only image2d_t odata,  write_only image2d_t odataLL, unsigned int firstX, unsigned int outputY, unsigned int width, unsigned int halfWidth){
+
+	int2 posOut = {firstX>>1, outputY};
+	for (int j = 0; j < WIN_SIZE_X; j+=2) {
+	
+	    // low pass
 		
 		//only need to check evens, since even point will be the first out of bound point
 	    if (posOut.x >= halfWidth)
@@ -120,7 +145,7 @@ void writeRowToOutput(LOCAL short* restrict currentScratch, write_only image2d_t
 
 		write_imagei(odataLL, posOut,readPixel(currentScratch));
 
-		// odd row
+		// high pass
 		currentScratch += HORIZONTAL_STRIDE ;
 		posOut.x+= halfWidth;
 
@@ -140,12 +165,14 @@ inline unsigned int getScratchOffset(){
 // assumptions: width and height are both even
 // (we will probably have to relax these assumptions in the future)
 void KERNEL run(read_only image2d_t idata, write_only image2d_t odataLL, write_only image2d_t odata,
-                       const unsigned int  width, const unsigned int height, const unsigned int steps) {
+                       const unsigned int  width, const unsigned int height, const unsigned int steps,
+					   const unsigned int  level, const unsigned int levels) {
 
 	int inputY = getCorrectedGlobalIdY();
 	int outputY = -1;
 	if (inputY < height && inputY >= 0)
 	    outputY = (inputY >> 1) + (inputY & 1)*( height >> 1);
+	bool pureOutput = (inputY & 1) || (level == levels-1);
 
     const unsigned int halfWidth = width >> 1;
 	LOCAL short scratch[PIXEL_BUFFER_SIZE];
@@ -253,10 +280,10 @@ void KERNEL run(read_only image2d_t idata, write_only image2d_t odataLL, write_o
 		//5. write local buffer column to destination image
 		// (only write non-boundary columns that are within the image bounds)
 		if (writeRow) {
-			 if (inputY &1)
-			   writeRowToOutput(scratch + getScratchOffset(), odata, odata, firstX, outputY, width, halfWidth);
+			 if (pureOutput)
+			   writeRowToOutput(scratch + getScratchOffset(), odata, firstX, outputY, width, halfWidth);
 			else
-			   writeRowToOutput(scratch + getScratchOffset(), odata, odataLL, firstX, outputY, width, halfWidth);
+			   writeRowToMixedOutput(scratch + getScratchOffset(), odata, odataLL, firstX, outputY, width, halfWidth);
 
 		}
 		// move to next step 

@@ -52,9 +52,7 @@ template<typename T> void OCLDWTForward<T>::doRun(bool lossy, size_t w, size_t h
 		return;
 	// set dwt + quantization kernel arguments
 	if (lossy && !memoryManager->doOutputDwt() ) {
-		if (setKernelArgsQuant(targetKernel,
-				static_cast<unsigned int>(level), 
-				static_cast<unsigned int>(levels), quantLL, quantLH, quantHH) 
+		if (setKernelArgsQuant(targetKernel, quantLL, quantLH, quantHH) 
 				!= DeviceSuccess)
 			return;
 
