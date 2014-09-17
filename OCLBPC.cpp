@@ -39,9 +39,7 @@ template<typename T> OCLBPC<T>::~OCLBPC(void)
 
 template<typename T>  void OCLBPC<T>::run(size_t codeblockX, size_t codeblockY){
 
-	if (setKernelArgs(static_cast<unsigned int>(codeblockX), 
-		              static_cast<unsigned int>(codeblockY),
-					  8) != DeviceSuccess) {
+	if (setKernelArgs() != DeviceSuccess) {
         return;
 	}
 	 size_t local_work_size[3] = {codeblockX, 1};
@@ -49,7 +47,7 @@ template<typename T>  void OCLBPC<T>::run(size_t codeblockX, size_t codeblockY){
 	 bpc->enqueue(2,global_work_size, local_work_size);
 }
 
-template<typename T> tDeviceRC OCLBPC<T>::setKernelArgs(unsigned int codeblockX, unsigned int codeblockY, unsigned int precision){
+template<typename T> tDeviceRC OCLBPC<T>::setKernelArgs(){
 	int numKernelArgs = 0;
 	cl_kernel targetKernel = bpc->getKernel();
 	unsigned int width = static_cast<unsigned int>(memoryManager->getWidth());
@@ -73,25 +71,6 @@ template<typename T> tDeviceRC OCLBPC<T>::setKernelArgs(unsigned int codeblockX,
 		return error_code;
 	}
 
-	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(codeblockX), &codeblockX);
-	if (DeviceSuccess != error_code)
-	{
-		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
-		return error_code;
-	}
-	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(codeblockY), &codeblockY);
-	if (DeviceSuccess != error_code)
-	{
-		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
-		return error_code;
-	}
-	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(precision), &precision);
-	if (DeviceSuccess != error_code)
-	{
-		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
-		return error_code;
-	}
-	
 	return DeviceSuccess;
 }
 

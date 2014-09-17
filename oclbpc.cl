@@ -16,17 +16,44 @@
 
 #include "ocl_platform.cl"
 
+/*
+
+BPC Scan Pattern
+
+Xx4 stripes
+
+The stripes are scanned from top to bottom, and the columns within a
+stripe are scanned from left to right.
+
+*/
+
+
+#define BOUNDARY 1
+
 
 CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
 
-void KERNEL run(read_only image2d_t idata, const unsigned int  width, const unsigned int height, const unsigned int  codeblockX, const unsigned int codeblockY, const unsigned int precision) {
+
+void KERNEL run(read_only image2d_t idata, const unsigned int  width, const unsigned int height) {
 
     //find max bit plane number
 	LOCAL char msb;
-	msb = 0;
-	int2 posIn = (int2)(getLocalId(0) + getGlobalId(0)*codeblockX, getLocalId(1) + getGlobalId(1)*codeblockY);
-	int4 val = read_imagei(idata, sampler, posIn);
-	int4 pixelMsb = 32 - clz(val);  // between one and 32
+	LOCAL char msbScratch[CODEBLOCKX];
+
+	msb = 0;							// between one and 32 - zero value indicates that this code block is identically zero
+	msbScratch[getLocalId(0)] = 0;
+
+	int2 posIn = (int2)(getLocalId(0) + getGlobalId(0)*CODEBLOCKX,  getGlobalId(1)*CODEBLOCKY);
+	int4 max = -2147483647-1;
+	for (int i = 0; i < CODEBLOCKX; ++i) {
+		int4 temp = read_imagei(idata, sampler, posIn);	    
+	}
+
+
+
+	/*
+
+	int4 pixelMsb = 32 - clz(val);  // between one and 32 - zero value indicates that this pixel has zero magnitude
 	int currentBit = 32;            // between one and 32 
 
 	// wait until all work items have unset msb
@@ -42,6 +69,10 @@ void KERNEL run(read_only image2d_t idata, const unsigned int  width, const unsi
         currentBit--;
 	}
 	//now we know the msb for the x channel of this code block
+	if (!msb)
+		return;
+*/
+
 	
 
 }

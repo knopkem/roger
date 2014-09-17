@@ -25,7 +25,7 @@
 
 template<typename T> OCLEncoder<T>::OCLEncoder(ocl_args_d_t* ocl, bool isLossy) : OCLEncodeDecode<T>(ocl, isLossy),
 	dwt(new OCLDWTForward<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=8 -D WIN_SIZE_Y=128"), memoryManager)),
-	bpc(new OCLBPC<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D WIN_SIZE_X=8 -D WIN_SIZE_Y=128"), memoryManager))
+	bpc(new OCLBPC<T>(KernelInitInfoBase(_ocl->commandQueue,  "-I . -D CODEBLOCKX=32 -D CODEBLOCKY=32"), memoryManager))
 {
 
 }
