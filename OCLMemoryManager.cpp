@@ -28,8 +28,9 @@ template<typename T> OCLMemoryManager<T>::OCLMemoryManager(ocl_args_d_t* ocl, bo
 											numComponents(0),
 											lossy(lossy),
 											dwtOut(0),
-											outputDwt(outputDwt)
+											onlyDwtOut(outputDwt)
 {
+
 }
 
 
@@ -79,7 +80,7 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 			return;
 		}
 
-		//allocate input image
+		//allocate output image(s)
 		cl_image_desc desc;
 		desc.image_type = CL_MEM_OBJECT_IMAGE2D;
 		desc.image_width = w;
@@ -94,13 +95,31 @@ template<typename T>  void OCLMemoryManager<T>::init(std::vector<T*> components,
 
 		cl_image_format format;
 		format.image_channel_order = numComponents == 4 ? CL_RGBA : CL_R;
-		format.image_channel_data_type = (outputDwt && lossy) ? CL_FLOAT : CL_SIGNED_INT16;
+		format.image_channel_data_type = (onlyDwtOut && lossy) ? CL_FLOAT : CL_SIGNED_INT16;
 		dwtOut = clCreateImage (context, CL_MEM_READ_WRITE, &format, &desc, NULL,&error_code);
 		if (CL_SUCCESS != error_code)
 		{
 			LogError("Error: clCreateImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
 			return;
 		}
+
+		if (numComponents == 4) {
+			format.image_channel_order = CL_R;
+			format.image_channel_data_type = CL_SIGNED_INT16;
+			for(int i = 0; i < 4; ++i) {
+				cl_mem temp = clCreateImage (context, CL_MEM_READ_WRITE, &format, &desc, NULL,&error_code);
+				if (CL_SUCCESS != error_code)
+				{
+					LogError("Error: clCreateImage (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
+					return;
+				}
+				dwtOutChannels.push_back(temp);
+
+			}
+		}
+
+		//allocate input images
+		format.image_channel_order = numComponents == 4 ? CL_RGBA : CL_R;
 		format.image_channel_data_type = lossy ? CL_FLOAT : CL_SIGNED_INT16;
 		for (int i =0; i < levels; ++i) {
 			cl_mem temp = clCreateImage (context, CL_MEM_READ_WRITE, &format, &desc, NULL,&error_code);
@@ -158,7 +177,7 @@ template<typename T> tDeviceRC OCLMemoryManager<T>::mapImage(cl_mem img, void** 
                                             &error_code);
     if (CL_SUCCESS != error_code)
     {
-        LogError("Error: clEnqueueMapBuffer return %s.\n", TranslateOpenCLError(error_code));
+        LogError("Error: clEnqueueMapImage return %s.\n", TranslateOpenCLError(error_code));
 
     }
 
@@ -184,7 +203,7 @@ template<typename T> tDeviceRC OCLMemoryManager<T>::mapBuffer(cl_mem buffer, voi
                                             &error_code);
     if (CL_SUCCESS != error_code)
     {
-        LogError("Error: clEnqueueMapImage return %s.\n", TranslateOpenCLError(error_code));
+        LogError("Error: clEnqueueMapBuffer return %s.\n", TranslateOpenCLError(error_code));
 
     }
 
@@ -234,6 +253,16 @@ template<typename T> void OCLMemoryManager<T>::freeBuffers(){
 			return;
 		}
 	}
+
+	for(std::vector<cl_mem>::iterator it = dwtOutChannels.begin(); it != dwtOutChannels.end(); ++it) {
+		error_code = clReleaseMemObject(*it);
+		if (CL_SUCCESS != error_code)
+		{
+			LogError("Error: clReleaseMemObject (CL_QUEUE_CONTEXT) returned %s.\n", TranslateOpenCLError(error_code));
+			return;
+		}
+	}
+
 
 	if (dwtOut) {
 		error_code = clReleaseMemObject(dwtOut);

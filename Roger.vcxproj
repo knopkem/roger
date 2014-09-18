@@ -167,6 +167,9 @@
     <Intel_OpenCL_Build_Rules Include="oclbpc.cl">
       <OTHER Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-D CODEBLOCKX=32 -D CODEBLOCKY=32</OTHER>
     </Intel_OpenCL_Build_Rules>
+    <Intel_OpenCL_Build_Rules Include="oclplanar.cl">
+      <OTHER Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-D WIN_SIZE_X=16 -D WIN_SIZE_Y=16;%(OTHER)</OTHER>
+    </Intel_OpenCL_Build_Rules>
     <Intel_OpenCL_Build_Rules Include="ocl_platform.cl" />
   </ItemGroup>
   <ItemGroup>
@@ -181,6 +184,7 @@
     <ClInclude Include="OCLDWTRev.h" />
     <ClInclude Include="OCLEncodeDecode.h" />
     <ClInclude Include="OCLEncoder.h" />
+    <ClInclude Include="OCLRGBtoPlanar.h" />
     <ClInclude Include="OCLTest.h" />
     <ClInclude Include="OCLKernel.h" />
     <ClInclude Include="OCLMemoryManager.h" />
@@ -200,6 +204,7 @@
     <ClCompile Include="OCLDWTRev.cpp" />
     <ClCompile Include="OCLEncodeDecode.cpp" />
     <ClCompile Include="OCLEncoder.cpp" />
+    <ClCompile Include="OCLRGBtoPlanar.cpp" />
     <ClCompile Include="OCLTest.cpp" />
     <ClCompile Include="OCLKernel.cpp" />
     <ClCompile Include="OCLMemoryManager.cpp" />

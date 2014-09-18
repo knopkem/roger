@@ -30,8 +30,14 @@ public:
 	size_t getHeight() {return height;}
 	size_t getNumLevels() {return _levels;}
 	size_t getPrecision() {return _precision;}
-	bool doOutputDwt() { return outputDwt;}
+	size_t getNumComponents() { return numComponents;}
+	bool isOnlyDwtOut() { return onlyDwtOut;}
 	cl_mem* getDWTOut(){ return &dwtOut;}
+	cl_mem* getDWTOutByChannel(size_t channel){ 
+		if (channel >= dwtOutChannels.size())
+			return 0;
+		return &dwtOutChannels[channel];
+	}
 	cl_mem* getDwtIn(size_t level){
 		if (level >= dwtIn.size())
 			return NULL;
@@ -62,7 +68,8 @@ private:
  
 	std::vector<cl_mem> dwtIn;  
 	cl_mem dwtOut;  //could be dwt or dwt + quantization
-	bool outputDwt;
+	std::vector<cl_mem> dwtOutChannels;
+	bool onlyDwtOut;
 
 };
 

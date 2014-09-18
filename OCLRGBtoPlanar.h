@@ -15,23 +15,21 @@
 
 #pragma once
 
-#include "OCLDWTForward.h"
-struct ocl_args_d_t;
-#include <vector>
+#include "OCLKernel.h"
 #include "OCLMemoryManager.h"
-#include "OCLEncodeDecode.h"
-#include "OCLBPC.h"
-#include "OCLRGBtoPlanar.h"
 
 
-template<typename T>  class OCLEncoder :  public OCLEncodeDecode<T>
+
+template<typename T> class OCLRGBtoPlanar
 {
 public:
-	OCLEncoder(ocl_args_d_t* ocl, bool isLossy, bool outputDwt);
-	~OCLEncoder(void);
-	void run(std::vector<T*> components,size_t w,size_t h, size_t levels, size_t precision);
+	OCLRGBtoPlanar(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr);
+	~OCLRGBtoPlanar(void);
+	void run();
 private:
-	OCLDWTForward<T>* dwt;
-	OCLBPC<T>* bpc;
-	OCLRGBtoPlanar<T>* rgbToPlanar;
+	tDeviceRC setKernelArgs();
+	KernelInitInfoBase initInfo;
+	OCLMemoryManager<T>* memoryManager;
+	OCLKernel* planar;
 };
+

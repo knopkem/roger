@@ -23,7 +23,7 @@
 
 template<typename T> OCLDWTForward<T>::OCLDWTForward(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr) : OCLDWT<T>(initInfo, memMgr),
 	               	forward53(new OCLKernel( KernelInitInfo(initInfo, "ocldwt53.cl", "run") )),
-					forward97(new OCLKernel( KernelInitInfo(initInfo, "ocldwt97.cl", memMgr->doOutputDwt() ? "run" : "runWithQuantization") ))
+					forward97(new OCLKernel( KernelInitInfo(initInfo, "ocldwt97.cl", memMgr->isOnlyDwtOut() ? "run" : "runWithQuantization") ))
 				
 											
 {
@@ -51,7 +51,7 @@ template<typename T> void OCLDWTForward<T>::doRun(bool lossy, size_t w, size_t h
 									) != DeviceSuccess)
 		return;
 	// set dwt + quantization kernel arguments
-	if (lossy && !memoryManager->doOutputDwt() ) {
+	if (lossy && !memoryManager->isOnlyDwtOut() ) {
 		if (setKernelArgsQuant(targetKernel, quantLL, quantLH, quantHH) 
 				!= DeviceSuccess)
 			return;
