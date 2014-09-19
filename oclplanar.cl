@@ -28,6 +28,8 @@ void KERNEL run(read_only image2d_t idata, const unsigned int  width, const unsi
 
         int x = getLocalId(0) + getGroupId(0) * WIN_SIZE_X;
 		int y = getLocalId(1) + getGroupId(1) * WIN_SIZE_Y;
+		if (x >=width || y >= height)
+			return;
 		int2 pos = (int2)(x,y);
 		int4 pix = read_imagei(idata, sampler, pos);
 		write_imagei(R,pos, (int4)(pix.x,0,0,0));
