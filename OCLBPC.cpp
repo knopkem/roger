@@ -52,12 +52,16 @@ template<typename T> tDeviceRC OCLBPC<T>::setKernelArgs(){
 	cl_kernel targetKernel = bpc->getKernel();
 	unsigned int width = static_cast<unsigned int>(memoryManager->getWidth());
 	unsigned int height = static_cast<unsigned int>(memoryManager->getHeight());
-	cl_int error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(cl_mem), memoryManager->getDWTOut() );
-	if (DeviceSuccess != error_code)
-	{
-		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
-		return error_code;
+	cl_int error_code;
+	for (int i =0; i < 4; ++i) {
+		cl_int error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(cl_mem), memoryManager->getDWTOutByChannel(i) );
+		if (DeviceSuccess != error_code)
+		{
+			LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
+			return error_code;
+		}
 	}
+
 	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(width), &width);
 	if (DeviceSuccess != error_code)
 	{

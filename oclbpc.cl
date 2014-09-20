@@ -34,7 +34,10 @@ stripe are scanned from left to right.
 CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
 
 
-void KERNEL run(read_only image2d_t idata, const unsigned int  width, const unsigned int height) {
+void KERNEL run(write_only image2d_t R,
+						 write_only image2d_t G, 
+						 write_only image2d_t B,
+						 write_only image2d_t A , const unsigned int  width, const unsigned int height) {
 
     //find max bit plane number
 	LOCAL char msb;
@@ -45,10 +48,28 @@ void KERNEL run(read_only image2d_t idata, const unsigned int  width, const unsi
 
 	int2 posIn = (int2)(getLocalId(0) + getGlobalId(0)*CODEBLOCKX,  getGlobalId(1)*CODEBLOCKY);
 	int4 max = -2147483647-1;
-	for (int i = 0; i < CODEBLOCKX; ++i) {
-		int4 temp = read_imagei(idata, sampler, posIn);	    
+	for (int i = 0; i < CODEBLOCKY; ++i) {
+		int4 temp = read_imagei(R, sampler, posIn);	   
+		posIn.y++; 
 	}
 
+
+
+	posIn = (int2)(getLocalId(0) + getGlobalId(0)*CODEBLOCKX,  getGlobalId(1)*CODEBLOCKY);
+	for (int i = 0; i < CODEBLOCKY; ++i) {
+		int4 temp = read_imagei(G, sampler, posIn);	   
+		posIn.y++; 
+	}
+	posIn = (int2)(getLocalId(0) + getGlobalId(0)*CODEBLOCKX,  getGlobalId(1)*CODEBLOCKY);
+	for (int i = 0; i < CODEBLOCKY; ++i) {
+		int4 temp = read_imagei(B, sampler, posIn);	   
+		posIn.y++; 
+	}
+	posIn = (int2)(getLocalId(0) + getGlobalId(0)*CODEBLOCKX,  getGlobalId(1)*CODEBLOCKY);
+	for (int i = 0; i < CODEBLOCKY; ++i) {
+		int4 temp = read_imagei(A, sampler, posIn);	   
+		posIn.y++; 
+	}
 
 
 	/*
