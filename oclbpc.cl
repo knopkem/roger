@@ -39,61 +39,55 @@ void KERNEL run(write_only image2d_t R,
 						 write_only image2d_t B,
 						 write_only image2d_t A , const unsigned int  width, const unsigned int height) {
 
-    //find max bit plane number
-	LOCAL char msb;
+	// Red channel 
+
+    //find maximum number of bits in code block
 	LOCAL char msbScratch[CODEBLOCKX];
 
-	msb = 0;							// between one and 32 - zero value indicates that this code block is identically zero
-	msbScratch[getLocalId(0)] = 0;
+    // between one and 32 - zero value indicates that this code block is identically zero
 
 	int2 posIn = (int2)(getLocalId(0) + getGlobalId(0)*CODEBLOCKX,  getGlobalId(1)*CODEBLOCKY);
-	int4 max = -2147483647-1;
+	int maxVal = -2147483647-1;
 	for (int i = 0; i < CODEBLOCKY; ++i) {
-		int4 temp = read_imagei(R, sampler, posIn);	   
+		maxVal = max(maxVal, read_imagei(R, sampler, posIn).x);	
 		posIn.y++; 
 	}
 
-
-
-	posIn = (int2)(getLocalId(0) + getGlobalId(0)*CODEBLOCKX,  getGlobalId(1)*CODEBLOCKY);
-	for (int i = 0; i < CODEBLOCKY; ++i) {
-		int4 temp = read_imagei(G, sampler, posIn);	   
-		posIn.y++; 
-	}
-	posIn = (int2)(getLocalId(0) + getGlobalId(0)*CODEBLOCKX,  getGlobalId(1)*CODEBLOCKY);
-	for (int i = 0; i < CODEBLOCKY; ++i) {
-		int4 temp = read_imagei(B, sampler, posIn);	   
-		posIn.y++; 
-	}
-	posIn = (int2)(getLocalId(0) + getGlobalId(0)*CODEBLOCKX,  getGlobalId(1)*CODEBLOCKY);
-	for (int i = 0; i < CODEBLOCKY; ++i) {
-		int4 temp = read_imagei(A, sampler, posIn);	   
-		posIn.y++; 
-	}
-
-
-	/*
-
-	int4 pixelMsb = 32 - clz(val);  // between one and 32 - zero value indicates that this pixel has zero magnitude
-	int currentBit = 32;            // between one and 32 
-
-	// wait until all work items have unset msb
+	char msbWI = 32 - clz(maxVal);
+	msbScratch[getLocalId(0)] =msbWI;
 	localMemoryFence();
+	
 
-	while(!msb && currentBit) {  
-	     if (pixelMsb.x == currentBit){
-		    msb = currentBit;
-		}
-		// wait to see if any work item has set msb in this iteration
-		localMemoryFence();
-
-        currentBit--;
+	//group by twos
+	if ( (getLocalId(0)&1) == 0) {
+		msbWI = max(msbWI, msbScratch[getLocalId(0)+1]);
 	}
-	//now we know the msb for the x channel of this code block
-	if (!msb)
-		return;
-*/
-
+	localMemoryFence();
+	
+	//group by fours
+	if ( (getLocalId(0)&3) == 0) {
+		msbWI = max(msbWI, msbScratch[getLocalId(0)+2]);
+	}
+	localMemoryFence();
+	
+	
+	//group by eights
+	if ( (getLocalId(0)&7) == 0) {
+		msbWI = max(msbWI, msbScratch[getLocalId(0)+4]);
+	}
+	localMemoryFence();
+	
+	//group by 16ths
+	if ( (getLocalId(0)&15) == 0) {
+		msbWI = max(msbWI, msbScratch[getLocalId(0)+8]);
+	}
+	localMemoryFence();
+	
+	
+	if (getLocalId(0) == 0) {
+		msbScratch[0] = max(msbWI, msbScratch[16]);  //crashes here with access violation while reading location .....
+	}
+	localMemoryFence();
 	
 
 }
