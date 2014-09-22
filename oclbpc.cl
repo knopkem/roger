@@ -31,16 +31,16 @@ stripe are scanned from left to right.
 #define BOUNDARY 1
 #define STATE_BUFFER_SIZE 1088
 #define STATE_BUFFER_STRIDE 34
-#define SAMPLE_SHIFT 10
-
+#define PIXEL_START_BIT 10  //zero based index
+#define PIXEL_END_BIT   24  //zero based index
 
 CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
 
 
-void KERNEL run(write_only image2d_t R,
-						 write_only image2d_t G, 
-						 write_only image2d_t B,
-						 write_only image2d_t A , const unsigned int  width, const unsigned int height) {
+void KERNEL run(read_only image2d_t R,
+						 read_only image2d_t G, 
+						 read_only image2d_t B,
+						 read_only image2d_t A , const unsigned int  width, const unsigned int height) {
 
 	// Red channel 
 
@@ -59,9 +59,9 @@ void KERNEL run(write_only image2d_t R,
 
 	//initialize pixels, and calculate column max
 	for (int i = 0; i < CODEBLOCKY; ++i) {
-	    int sample = read_imagei(R, sampler, posIn).x;
-		state[index] = sample << SAMPLE_SHIFT;
-		maxVal = max(maxVal, sample);
+	    int pixel = read_imagei(R, sampler, posIn).x;
+		state[index] = pixel << PIXEL_START_BIT;
+		maxVal = max(maxVal, pixel);
 		index += STATE_BUFFER_STRIDE;	
 		posIn.y++; 
 	}
