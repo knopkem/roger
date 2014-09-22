@@ -29,6 +29,9 @@ stripe are scanned from left to right.
 
 
 #define BOUNDARY 1
+#define STATE_BUFFER_SIZE 1088
+#define STATE_BUFFER_STRIDE 34
+#define SAMPLE_SHIFT 10
 
 
 CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
@@ -42,54 +45,52 @@ void KERNEL run(write_only image2d_t R,
 	// Red channel 
 
     //find maximum number of bits in code block
-	LOCAL char msbScratch[CODEBLOCKX];
+	LOCAL int msbScratch[CODEBLOCKX];
+	LOCAL int state[STATE_BUFFER_SIZE];
 
     // between one and 32 - zero value indicates that this code block is identically zero
 
 	int2 posIn = (int2)(getLocalId(0) + getGlobalId(0)*CODEBLOCKX,  getGlobalId(1)*CODEBLOCKY);
 	int maxVal = -2147483647-1;
+	int index = BOUNDARY + getLocalId(0);
 	for (int i = 0; i < CODEBLOCKY; ++i) {
-		maxVal = max(maxVal, read_imagei(R, sampler, posIn).x);	
+	    int sample = read_imagei(R, sampler, posIn).x;
+		state[index] = sample << SAMPLE_SHIFT;
+		maxVal = max(maxVal, sample);
+		index += STATE_BUFFER_STRIDE;	
 		posIn.y++; 
 	}
+	//initialize boundary columns
+	if (getLocalId(0) == 0 || getLocalId(0) == CODEBLOCKX-1) {
+	    int delta = -1 + (getLocalId(0)/(CODEBLOCKX-1))*2; // -1 or +1
+		int index = BOUNDARY + getLocalId(0) + delta;
+		 for (int i = 0; i < CODEBLOCKY; ++i) {
+		     state[index] = 0;
+			 index += STATE_BUFFER_STRIDE;
+		 }
+	}
 
-	char msbWI = 32 - clz(maxVal);
+	int msbWI = 32 - clz(maxVal);
 	msbScratch[getLocalId(0)] =msbWI;
-	localMemoryFence();
-	
-
-	//group by twos
-	if ( (getLocalId(0)&1) == 0) {
-		msbWI = max(msbWI, msbScratch[getLocalId(0)+1]);
-	}
-	localMemoryFence();
-	
-	//group by fours
-	if ( (getLocalId(0)&3) == 0) {
-		msbWI = max(msbWI, msbScratch[getLocalId(0)+2]);
-	}
-	localMemoryFence();
-	
-	
-	//group by eights
-	if ( (getLocalId(0)&7) == 0) {
-		msbWI = max(msbWI, msbScratch[getLocalId(0)+4]);
-	}
-	localMemoryFence();
-	
-	//group by 16ths
-	if ( (getLocalId(0)&15) == 0) {
-		msbWI = max(msbWI, msbScratch[getLocalId(0)+8]);
-	}
 	localMemoryFence();
 	
 	
 	if (getLocalId(0) == 0) {
-		msbScratch[0] = max(msbWI, msbScratch[16]);  //crashes here with access violation while reading location .....
+	    int4 mx = (int4)(msbWI);
+		/*
+		for(int i=0; i < CODEBLOCKX; i+=4) {
+		    int4 temp = mx;
+			mx = max(temp,(int4)(msbScratch[i],msbScratch[i+1],msbScratch[i+2],msbScratch[i+3]));
+		}
+		msbWI = mx.x;
+		msbWI = max(msbWI, mx.y);
+		msbWI = max(msbWI, mx.z);
+		msbWI = max(msbWI, mx.w);
+		*/
+		msbScratch[0] = 8;
 	}
-	localMemoryFence();
-	
 
+	localMemoryFence();
 }
 
 
