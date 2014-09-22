@@ -44,15 +44,20 @@ void KERNEL run(write_only image2d_t R,
 
 	// Red channel 
 
-    //find maximum number of bits in code block
+	// between one and 32 - zero value indicates that this code block is identically zero
 	LOCAL int msbScratch[CODEBLOCKX];
+
+	// state buffer
+	// 
 	LOCAL int state[STATE_BUFFER_SIZE];
 
-    // between one and 32 - zero value indicates that this code block is identically zero
+
 
 	int2 posIn = (int2)(getLocalId(0) + getGlobalId(0)*CODEBLOCKX,  getGlobalId(1)*CODEBLOCKY);
 	int maxVal = -2147483647-1;
 	int index = BOUNDARY + getLocalId(0);
+
+	//initialize pixels, and calculate column max
 	for (int i = 0; i < CODEBLOCKY; ++i) {
 	    int sample = read_imagei(R, sampler, posIn).x;
 		state[index] = sample << SAMPLE_SHIFT;
