@@ -53,7 +53,7 @@ stripe are scanned from left to right.
 
 
 
-#define AMD
+//#define AMD
 
 
 
@@ -109,10 +109,10 @@ void KERNEL run(read_only image2d_t R,
 	maxBitsScratch[getLocalId(0)] =maxBits;
 	localMemoryFence();
 	
-	
+#ifdef AMD	
 	if (getLocalId(0) == 0) {
 	    int4 mx = (int4)(maxBits);
-#ifdef AMD		
+
         LOCAL int* scratchPtr = maxBitsScratch;
 		for(int i=0; i < CODEBLOCKX; i+=4) {
 			mx = max(mx,(int4)(maxBitsScratch[i],maxBitsScratch[i+1],maxBitsScratch[i+2],maxBitsScratch[i+3]));
@@ -122,10 +122,6 @@ void KERNEL run(read_only image2d_t R,
 		maxBits = max(maxBits, mx.z);
 		maxBits = max(maxBits, mx.w);
 		maxBitsScratch[0] = maxBits;
-#else
-		maxBitsScratch[0] = 8;
-#endif		
-
 	}
 
 	localMemoryFence();
@@ -162,8 +158,10 @@ void KERNEL run(read_only image2d_t R,
 		 state[index] = val | CURRENT_BIT(val);	//set sigma new
 		 index += STATE_BUFFER_STRIDE;
 	}
-
 	localMemoryFence();
+#else
+   int bp = 12;
+#endif
 
 	// set rlcNbh, and run CUP coding
 	index = BOUNDARY + getLocalId(0);
@@ -176,8 +174,8 @@ void KERNEL run(read_only image2d_t R,
 		 int valLL = CURRENT_BIT(state[index-1+STATE_BUFFER_STRIDE]);
 		 int valMU = CURRENT_BIT(state[index-STATE_BUFFER_STRIDE]);
 		 int rlc = (valLU + valLM + valLL + valMU);
-		 rlc = ((rlc | (~rlc + 1)) >> 27) & RLC;  // 1 if non-zero, 0 if zero
-		 val |= rlc;
+		 rlc = ((rlc | (~rlc + 1)) >> 27) & RLC;  // RLC if non-zero, otherwise zero 
+		 val |= rlc;							  // set rlc
 
 		 if (rlc == 0 && ((y&3) == 0) ) {
 			//RLC
