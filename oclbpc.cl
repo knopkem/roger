@@ -30,8 +30,20 @@ stripe are scanned from left to right.
 
 #define BOUNDARY 1
 #define TWICE_BOUNDARY 2
+#define CODEBLOCKY_PLUS_BOUNDARY 33
 #define STATE_BUFFER_SIZE 1156
 #define STATE_BUFFER_STRIDE 34
+
+#define LEFT_TOP -35
+#define TOP  -34
+#define RIGHT_TOP -33
+
+#define LEFT   -1
+#define RIGHT   1
+
+#define LEFT_BOTTOM  33
+#define BOTTOM  34
+#define RIGHT_BOTTOM  35
 
 
 // bit numbers (0 based indices)
@@ -75,7 +87,7 @@ void KERNEL run(read_only image2d_t R,
 	//0.  calculate max bits 
 
 	// between one and 32 - zero value indicates that this code block is identically zero
-	LOCAL int maxBitsScratch[CODEBLOCKX];
+	LOCAL int msbScratch[CODEBLOCKX];
 
 	// state buffer
 	LOCAL int state[STATE_BUFFER_SIZE];
@@ -88,7 +100,7 @@ void KERNEL run(read_only image2d_t R,
 
 	state[getLocalId(0)] = 0;
 	//initialize pixels, and calculate column max
-	for (int i = BOUNDARY; i < CODEBLOCKY + BOUNDARY; ++i) {
+	for (int i = BOUNDARY; i < CODEBLOCKY_PLUS_BOUNDARY; ++i) {
 	    int pixel = read_imagei(R, sampler, posIn).x;
 		state[index] = (abs(pixel) << PIXEL_START_BITPOS) | ((pixel << INPUT_TO_SIGN_SHIFT) & SIGN);
 		maxVal = max(maxVal, pixel);
@@ -107,27 +119,27 @@ void KERNEL run(read_only image2d_t R,
 		 }
 	}
 
-	int maxBits = 32 - clz(maxVal);
-	maxBitsScratch[getLocalId(0)] =maxBits;
+	int maxSigBit = 31 - clz(maxVal);
+	msbScratch[getLocalId(0)] =maxSigBit;
 	localMemoryFence();
 	
 #ifdef AMD	
 	if (getLocalId(0) == 0) {
-	    int4 mx = (int4)(maxBits);
+	    int4 mx = (int4)(maxSigBit);
 
-        LOCAL int* scratchPtr = maxBitsScratch;
+        LOCAL int* scratchPtr = msbScratch;
 		for(int i=0; i < CODEBLOCKX; i+=4) {
-			mx = max(mx,(int4)(maxBitsScratch[i],maxBitsScratch[i+1],maxBitsScratch[i+2],maxBitsScratch[i+3]));
+			mx = max(mx,(int4)(msbScratch[i],msbScratch[i+1],msbScratch[i+2],msbScratch[i+3]));
 		}
-		maxBits = mx.x;
-		maxBits = max(maxBits, mx.y);
-		maxBits = max(maxBits, mx.z);
-		maxBits = max(maxBits, mx.w);
-		maxBitsScratch[0] = maxBits;
+		maxSigBit = mx.x;
+		maxSigBit = max(maxSigBit, mx.y);
+		maxSigBit = max(maxSigBit, mx.z);
+		maxSigBit = max(maxSigBit, mx.w);
+		msbScratch[0] = maxSigBit;
 	}
 
 	localMemoryFence();
-	if (maxBitsScratch[0] == 0)
+	if (msbScratch[0] == -1)
 		return;
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -151,35 +163,36 @@ void KERNEL run(read_only image2d_t R,
 	11: end if	
 	*/
 
-	int bp = (maxBitsScratch[0] -1) + PIXEL_START_BITPOS;
+	int bp = msbScratch[0] + PIXEL_START_BITPOS;
 
 	//set sigma new
 	index = BOUNDARY + getLocalId(0);
-	for (int i = BOUNDARY; i < CODEBLOCKY+ BOUNDARY; ++i) {
+	for (int i = BOUNDARY; i < CODEBLOCKY_PLUS_BOUNDARY; ++i) {
 	     int val = state[index];
 		 state[index] = val | CURRENT_BIT(val);	//set sigma new
 		 index += STATE_BUFFER_STRIDE;
 	}
 	localMemoryFence();
 #else
-   int bp = 12;
+   int bp = 11 + PIXEL_START_BITPOS;
 #endif
 
 	// set rlcNbh, and run CUP coding
-	index = BOUNDARY + getLocalId(0);
+	LOCAL int* statePtr = state + BOUNDARY + getLocalId(0);
 	int y = 0;
 	for (int i = BOUNDARY; i < CODEBLOCKY+BOUNDARY; ++i) {
-		 int val = state[index];
+		 int val = *statePtr;
 		 int currentBit = CURRENT_BIT(val);
-	     int valLU = CURRENT_BIT(state[index-1-STATE_BUFFER_STRIDE]);
-		 int valLM = CURRENT_BIT(state[index-1]);
-		 int valLL = CURRENT_BIT(state[index-1+STATE_BUFFER_STRIDE]);
-		 int valMU = CURRENT_BIT(state[index-STATE_BUFFER_STRIDE]);
-		 int nbh = (valLU + valLM + valLL + valMU);
-		 nbh = ((nbh | (~nbh + 1)) >> 27) * NBH;  // NBH if non-zero, otherwise zero 
-		 val |= nbh;							  // set rlc
 
-		 if (nbh == 0 && ((y&3) == 0) ) {
+		 int top = CURRENT_BIT(statePtr[TOP]);
+	     int leftTop = CURRENT_BIT(statePtr[LEFT_TOP]);
+		 int left = CURRENT_BIT(statePtr[LEFT]);
+		 int leftBottom = CURRENT_BIT(statePtr[LEFT_BOTTOM]);
+		 int nbh = (top + leftTop + left + leftBottom);
+		 nbh = ((nbh | (~nbh + 1)) >> 27) * NBH;  // NBH if non-zero, otherwise zero 
+		 val |= nbh;							  // set nbh
+
+		 if (!nbh && !(y&3)) {
 			//RLC
 
 		 } else {
@@ -190,7 +203,7 @@ void KERNEL run(read_only image2d_t R,
 			//SC
 
 		 }
-		 index += STATE_BUFFER_STRIDE;
+		 statePtr += STATE_BUFFER_STRIDE;
 		 y++;
 	}
 	localMemoryFence();
