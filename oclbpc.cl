@@ -37,6 +37,7 @@ stripe are scanned from left to right.
 // bit numbers (0 based indices)
 #define INPUT_SIGN_BITPOS  15
  
+#define NBH_BITPOS         0x2
 #define RLC_BITPOS         0x4
 #define PIXEL_START_BITPOS 0xA 
 #define PIXEL_END_BITPOS   0x18 
@@ -50,6 +51,7 @@ stripe are scanned from left to right.
 #define PIXEL				 0x7FFF0000   //10-24
 #define SIGN				 0x2000000    //25
 
+#define INPUT_TO_SIGN_SHIFT 10
 
 
 
@@ -88,7 +90,7 @@ void KERNEL run(read_only image2d_t R,
 	//initialize pixels, and calculate column max
 	for (int i = BOUNDARY; i < CODEBLOCKY + BOUNDARY; ++i) {
 	    int pixel = read_imagei(R, sampler, posIn).x;
-		state[index] = (abs(pixel) << PIXEL_START_BITPOS) | ((pixel >> INPUT_SIGN_BITPOS) << SIGN_BITPOS);
+		state[index] = (abs(pixel) << PIXEL_START_BITPOS) | ((pixel << INPUT_TO_SIGN_SHIFT) & SIGN);
 		maxVal = max(maxVal, pixel);
 		index += STATE_BUFFER_STRIDE;	
 		posIn.y++; 
@@ -173,11 +175,11 @@ void KERNEL run(read_only image2d_t R,
 		 int valLM = CURRENT_BIT(state[index-1]);
 		 int valLL = CURRENT_BIT(state[index-1+STATE_BUFFER_STRIDE]);
 		 int valMU = CURRENT_BIT(state[index-STATE_BUFFER_STRIDE]);
-		 int rlc = (valLU + valLM + valLL + valMU);
-		 rlc = ((rlc | (~rlc + 1)) >> 27) & RLC;  // RLC if non-zero, otherwise zero 
-		 val |= rlc;							  // set rlc
+		 int nbh = (valLU + valLM + valLL + valMU);
+		 nbh = ((nbh | (~nbh + 1)) >> 27) * NBH;  // NBH if non-zero, otherwise zero 
+		 val |= nbh;							  // set rlc
 
-		 if (rlc == 0 && ((y&3) == 0) ) {
+		 if (nbh == 0 && ((y&3) == 0) ) {
 			//RLC
 
 		 } else {
