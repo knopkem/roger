@@ -35,6 +35,8 @@ stripe are scanned from left to right.
 
 
 #define STATE_BUFFER_SIZE 1156
+#define STATE_BOUNDARY_OFFSET 1124
+
 #define STATE_BUFFER_STRIDE 34
 #define STATE_BUFFER_SIZE_QUARTER 289
 
@@ -109,15 +111,14 @@ void KERNEL run(read_only image2d_t R,
 
 	int maxSigBit;
 	if (getLocalId(1) == 0) {
-		int maxVal = -2147483647-1;
-		int index = BOUNDARY + getLocalId(0);
+		int maxVal = 0;
 		state[getLocalId(0)] = 0;   //boundary
 		LOCAL int* statePtr = state + BOUNDARY + getLocalId(0);
 		for (int i = 0; i < CODEBLOCKY; ++i) {
-			maxVal = max(maxVal, *statePtr);
+			maxVal = max(maxVal, (*statePtr >> PIXEL_START_BITPOS)&0x7FFF);
 			statePtr += STATE_BUFFER_STRIDE;	
 		}
-		state[index] = 0;		//boundary
+		state[ getLocalId(0) + STATE_BOUNDARY_OFFSET] = 0;		//boundary
 
 		//initialize full boundary columns
 		if (getLocalId(0) == 0 || getLocalId(0) == CODEBLOCKX-1) {
