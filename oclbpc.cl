@@ -37,7 +37,7 @@ stripe are scanned from left to right.
 
 
 #define STATE_BUFFER_SIZE 1156
-#define STATE_BOUNDARY_OFFSET 1124
+#define STATE_BOTTOM_BOUNDARY_OFFSET 1124
 
 #define STATE_BUFFER_STRIDE 34
 #define STATE_BUFFER_STRIDE_X4 136
@@ -54,7 +54,7 @@ stripe are scanned from left to right.
 #define RIGHT_BOTTOM  35
 
 
-// bit numbers (0 based indices)
+// bit positions (0 based indices)
 #define INPUT_SIGN_BITPOS  15
  
 #define NBH_BITPOS         0x2
@@ -72,12 +72,6 @@ stripe are scanned from left to right.
 #define SIGN				 0x2000000    //25
 
 #define INPUT_TO_SIGN_SHIFT 10
-
-
-
-#define AMD
-
-
 
 CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
 
@@ -107,21 +101,21 @@ void KERNEL run(read_only image2d_t R,
 
 	///////////////////////////////////////////////////////////////////////////////////
 	//1. Calculate MSB
-	// between one and 32 - zero value indicates that this code block is identically zero
-	LOCAL int msbScratch[CODEBLOCKX];
+	
+	LOCAL int msbScratch[CODEBLOCKX]; // between one and 32 - zero value indicates that this code block is identically zero
 
 	int maxSigBit;
 	if (getLocalId(1) == 0) {
 		int maxVal = 0;
-		state[getLocalId(0)] = 0;   //boundary
+		state[getLocalId(0)] = 0;   //top boundary
 		LOCAL int* statePtr = state + (BOUNDARY + getLocalId(0));
 		for (int i = 0; i < CODEBLOCKY; ++i) {
 			maxVal = max(maxVal, (*statePtr >> PIXEL_START_BITPOS)&0x7FFF);
 			statePtr += STATE_BUFFER_STRIDE;	
 		}
-		state[ getLocalId(0) + STATE_BOUNDARY_OFFSET] = 0;		//boundary
+		state[ getLocalId(0) + STATE_BOTTOM_BOUNDARY_OFFSET] = 0;		//bottom boundary
 
-		//initialize full boundary columns
+		//initialize full left and right boundary columns
 		if (getLocalId(0) == 0 || getLocalId(0) == CODEBLOCKX-1) {
 			int delta = -1 + (getLocalId(0)/(CODEBLOCKX-1))*2; // -1 or +1
 			statePtr = state + BOUNDARY + getLocalId(0) + delta;
@@ -136,6 +130,7 @@ void KERNEL run(read_only image2d_t R,
 		msbScratch[getLocalId(0)] =maxSigBit;
 	}
 	localMemoryFence();
+
 	if (getLocalId(1) == 0) {
 		//calculate global msb
 		if (getLocalId(0) == 0) {
@@ -153,10 +148,9 @@ void KERNEL run(read_only image2d_t R,
 		}
 	}
 	localMemoryFence();
+
 	if (msbScratch[0] == -1)
 		return;
-
-
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// 2. CUP on MSB
