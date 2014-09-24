@@ -31,14 +31,16 @@ stripe are scanned from left to right.
 #define CODEBLOCKY_QUARTER 8
 
 #define BOUNDARY 1
-#define TWICE_BOUNDARY 2
+#define BOUNDARY_X2 2
+
+#define CODEBLOCKY_X4 128
 
 
 #define STATE_BUFFER_SIZE 1156
 #define STATE_BOUNDARY_OFFSET 1124
 
 #define STATE_BUFFER_STRIDE 34
-#define STATE_BUFFER_SIZE_QUARTER 289
+#define STATE_BUFFER_STRIDE_X4 136
 
 #define LEFT_TOP -35
 #define TOP  -34
@@ -92,20 +94,19 @@ void KERNEL run(read_only image2d_t R,
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
 	//0. read data into LDS
-
-	//initialize pixels (including top and bottom boundary pixels)
-	int2 posIn = (int2)(getLocalId(0) + getGlobalId(0)*CODEBLOCKX,  getGlobalId(1)*CODEBLOCKY);
+	int2 posIn = (int2)(getGlobalId(0),  (getGlobalId(1)&7)*CODEBLOCKY + getLocalId(1) );
 	LOCAL int* statePtr = state + BOUNDARY + getLocalId(0);
 	for (int i = 0; i < 4; ++i) {
 		int pixel = read_imagei(R, sampler, posIn).x;
 		*statePtr = (abs(pixel) << PIXEL_START_BITPOS) | ((pixel << INPUT_TO_SIGN_SHIFT) & SIGN);
-		posIn.y += CODEBLOCKY_QUARTER;
-		statePtr += STATE_BUFFER_SIZE_QUARTER;
+		posIn.y++;
+		statePtr += STATE_BUFFER_STRIDE;
 
 	}
-
 	localMemoryFence();
 
+	///////////////////////////////////////////////////////////////////////////////////
+	//1. Calculate MSB
 	// between one and 32 - zero value indicates that this code block is identically zero
 	LOCAL int msbScratch[CODEBLOCKX];
 
@@ -113,7 +114,7 @@ void KERNEL run(read_only image2d_t R,
 	if (getLocalId(1) == 0) {
 		int maxVal = 0;
 		state[getLocalId(0)] = 0;   //boundary
-		LOCAL int* statePtr = state + BOUNDARY + getLocalId(0);
+		LOCAL int* statePtr = state + (BOUNDARY + getLocalId(0));
 		for (int i = 0; i < CODEBLOCKY; ++i) {
 			maxVal = max(maxVal, (*statePtr >> PIXEL_START_BITPOS)&0x7FFF);
 			statePtr += STATE_BUFFER_STRIDE;	
@@ -124,7 +125,7 @@ void KERNEL run(read_only image2d_t R,
 		if (getLocalId(0) == 0 || getLocalId(0) == CODEBLOCKX-1) {
 			int delta = -1 + (getLocalId(0)/(CODEBLOCKX-1))*2; // -1 or +1
 			statePtr = state + BOUNDARY + getLocalId(0) + delta;
-			 for (int i = 0; i < CODEBLOCKY+ TWICE_BOUNDARY; ++i) {
+			 for (int i = 0; i < CODEBLOCKY+ BOUNDARY_X2; ++i) {
 				 *statePtr = 0;
 				 statePtr += STATE_BUFFER_STRIDE;
 			 }
@@ -155,10 +156,10 @@ void KERNEL run(read_only image2d_t R,
 	if (msbScratch[0] == -1)
 		return;
 
-/*
+
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// 1. CUP on MSB
+	// 2. CUP on MSB
 
 	
 	//Algorithm 13 Clean-up pass on the MSB
@@ -178,28 +179,38 @@ void KERNEL run(read_only image2d_t R,
 
 	int bp = msbScratch[0] + PIXEL_START_BITPOS;
 
-	// sigma_new and rlcNbh 
-	LOCAL int* statePtr = state + BOUNDARY + getLocalId(0);
-	int current = *statePtr;
+	// sigma_new 
+	statePtr = state + (BOUNDARY + getLocalId(0)) + (BOUNDARY + getLocalId(1))*STATE_BUFFER_STRIDE_X4;
+	for (int i = 0; i < 4; ++i) {
+		int current = *statePtr;
+		*statePtr |= BIT(current);	 // set sigma_new
+		statePtr += STATE_BUFFER_STRIDE;
+
+	}
+	localMemoryFence();
+
+	
+	// rlcNbh
+	statePtr = state + (BOUNDARY + getLocalId(0)) + (BOUNDARY + getLocalId(1))*STATE_BUFFER_STRIDE_X4;
 	int top = statePtr[TOP];
 	int leftTop = statePtr[LEFT_TOP];
 	int left = statePtr[LEFT];
 	int leftBottom = statePtr[LEFT_BOTTOM];
-	for (int i = 0; i < CODEBLOCKY; ++i) {
 
+	for (int i = 0; i < 4; ++i) {
 		int nbh = BIT(top) + BIT(leftTop) + BIT(left) + BIT(leftBottom);
 		nbh = ((nbh | (~nbh + 1)) >> 27) * NBH;  // NBH if non-zero, otherwise zero 
-		*statePtr = current | nbh | BIT(current);							  // set nbh and sigma_new
-
-		index += STATE_BUFFER_STRIDE;
-		current = *statePtr;
-		top = current;
-		leftTop=left;
+		*statePtr |= nbh;	 // set nbh
+		statePtr += STATE_BUFFER_STRIDE;
+		top = left;
 		left = leftBottom;
+		top = statePtr[TOP];
 		leftBottom = statePtr[LEFT_BOTTOM];
 
 	}
 	localMemoryFence();
+	
+/*
 
 	// run CUP coding on MSB
 	statePtr = state + BOUNDARY + getLocalId(0);
