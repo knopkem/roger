@@ -42,8 +42,8 @@ template<typename T>  void OCLBPC<T>::run(size_t codeblockX, size_t codeblockY){
 	if (setKernelArgs() != DeviceSuccess) {
         return;
 	}
-	 size_t local_work_size[3] = {codeblockX, 1};
-	 size_t global_work_size[3] = {memoryManager->getWidth(), divRndUp(memoryManager->getHeight(), codeblockY),1};
+	 size_t local_work_size[3] = {codeblockX, codeblockY/4};
+	 size_t global_work_size[3] = {memoryManager->getWidth(), memoryManager->getHeight()/4,1};
 	 bpc->enqueue(2,global_work_size, local_work_size);
 }
 
