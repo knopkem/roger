@@ -27,7 +27,7 @@ public:
 	~OCLBPC(void);
 	void run(size_t codeblockX, size_t codeblockY);
 private:
-	tDeviceRC setKernelArgs();
+	tDeviceRC setKernelArgs(cl_mem* channel);
 	KernelInitInfoBase initInfo;
 	OCLMemoryManager<T>* memoryManager;
 	OCLKernel* bpc;

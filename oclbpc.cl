@@ -78,10 +78,7 @@ CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
 #define BIT(pix) (((pix)>>(bp))&1)
 
 
-void KERNEL run(read_only image2d_t R,
-						 read_only image2d_t G, 
-						 read_only image2d_t B,
-						 read_only image2d_t A , const unsigned int  width, const unsigned int height) {
+void KERNEL run(read_only image2d_t channel) {
 
 	// state buffer
 	LOCAL int state[STATE_BUFFER_SIZE];
@@ -91,7 +88,7 @@ void KERNEL run(read_only image2d_t R,
 	int2 posIn = (int2)(getGlobalId(0),  (getGlobalId(1)&7)*CODEBLOCKY + getLocalId(1) );
 	LOCAL int* statePtr = state + BOUNDARY + getLocalId(0);
 	for (int i = 0; i < 4; ++i) {
-		int pixel = read_imagei(R, sampler, posIn).x;
+		int pixel = read_imagei(channel, sampler, posIn).x;
 		*statePtr = (abs(pixel) << PIXEL_START_BITPOS) | ((pixel << INPUT_TO_SIGN_SHIFT) & SIGN);
 		posIn.y++;
 		statePtr += STATE_BUFFER_STRIDE;

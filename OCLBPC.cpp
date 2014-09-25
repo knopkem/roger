@@ -38,37 +38,24 @@ template<typename T> OCLBPC<T>::~OCLBPC(void)
 }
 
 template<typename T>  void OCLBPC<T>::run(size_t codeblockX, size_t codeblockY){
-
-	if (setKernelArgs() != DeviceSuccess) {
-        return;
-	}
 	 size_t local_work_size[3] = {codeblockX, codeblockY/4};
 	 size_t global_work_size[3] = {memoryManager->getWidth(), memoryManager->getHeight()/4,1};
-	 bpc->enqueue(2,global_work_size, local_work_size);
+	 for (int i  =0; i < 4; ++i) {
+
+		 if (setKernelArgs(memoryManager->getDWTOutByChannel(i)) != DeviceSuccess) {
+			return;
+		}
+		bpc->enqueue(2,global_work_size, local_work_size);
+	 }
+
+
+	
 }
 
-template<typename T> tDeviceRC OCLBPC<T>::setKernelArgs(){
+template<typename T> tDeviceRC OCLBPC<T>::setKernelArgs(cl_mem* channel){
 	int numKernelArgs = 0;
 	cl_kernel targetKernel = bpc->getKernel();
-	unsigned int width = static_cast<unsigned int>(memoryManager->getWidth());
-	unsigned int height = static_cast<unsigned int>(memoryManager->getHeight());
-	cl_int error_code;
-	for (int i =0; i < 4; ++i) {
-		cl_int error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(cl_mem), memoryManager->getDWTOutByChannel(i) );
-		if (DeviceSuccess != error_code)
-		{
-			LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
-			return error_code;
-		}
-	}
-
-	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(width), &width);
-	if (DeviceSuccess != error_code)
-	{
-		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
-		return error_code;
-	}
-	error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(height), &height);
+	cl_int error_code = clSetKernelArg(targetKernel, numKernelArgs++, sizeof(cl_mem),channel);
 	if (DeviceSuccess != error_code)
 	{
 		LogError("Error: setKernelArgs returned %s.\n", TranslateOpenCLError(error_code));
