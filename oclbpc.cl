@@ -182,7 +182,7 @@ void KERNEL run(read_only image2d_t channel) {
 
 	int bp = msbScratch[0] + PIXEL_START_BITPOS;
 
-	// sigma_new 
+	// set sigma_new for strip column (sigma_old is zero)
 	statePtr = state + (BOUNDARY + getLocalId(0)) + (BOUNDARY + getLocalId(1))*STATE_BUFFER_STRIDE_X4;
 	for (int i = 0; i < 4; ++i) {
 		int current = *statePtr;
@@ -191,71 +191,41 @@ void KERNEL run(read_only image2d_t channel) {
 
 	}
 	localMemoryFence();
-
-	
-	// rlcNbh
+		
+	// set rlc nbh for strip column
 	statePtr = state + (BOUNDARY + getLocalId(0)) + (BOUNDARY + getLocalId(1))*STATE_BUFFER_STRIDE_X4;
+	int current = statePtr[0];
 	int top = statePtr[TOP];
 	int leftTop = statePtr[LEFT_TOP];
 	int left = statePtr[LEFT];
 	int leftBottom = statePtr[LEFT_BOTTOM];
 
-	for (int i = 0; i < 4; ++i) {
-		int nbh = BIT(top) + BIT(leftTop) + BIT(left) + BIT(leftBottom);
-		nbh = ((nbh | (~nbh + 1)) >> 27) * NBH;  // NBH if non-zero, otherwise zero 
-		*statePtr |= nbh;						// set nbh
+	int nbh = (BIT(top) || BIT(leftTop) || BIT(left) || BIT(leftBottom)) << NBH_BITPOS ;
+	bool doRLC = (nbh == 0);  
+	int rlcCount = 0;               
+	for (int i = 1; i < 4; ++i) {
+		*statePtr |= nbh;	
+		if (doRLC) {
+		        
+
+		} else {
+
+
+
+		}
+									
 		statePtr += STATE_BUFFER_STRIDE;
 		top = statePtr[TOP];
 		leftTop = left;
 		left = leftBottom;
 		leftBottom = statePtr[LEFT_BOTTOM];
-
+		nbh = (BIT(top) || BIT(leftTop) || BIT(left) || BIT(leftBottom)) << NBH_BITPOS;
+		if (doRLC && nbh)
+		   doRLC = false;
 	}
 	localMemoryFence();
 
-	// run CUP coding on MSB
-	statePtr = state + (BOUNDARY + getLocalId(0)) + (BOUNDARY + getLocalId(1))*STATE_BUFFER_STRIDE_X4;
-    int current = statePtr[0];
-	left = statePtr[LEFT];
-	int right = statePtr[RIGHT];
-	int currentPlusOne = statePtr[STATE_BUFFER_STRIDE];
-	int currentPlusTwo = statePtr[STATE_BUFFER_STRIDE_X2];
-	int currentPlusThree = statePtr[STATE_BUFFER_STRIDE_X3];
-
-
-	//RLC
-	// get information about both SIGMA_NEW and SIGMA_OLD from
-	// left and right neighbours and current bit, 
-	// and use this to update the current RLC bit
-	statePtr[0] |= (( left & SIGMA_NEW ) ||
-						(left & SIGMA_OLD ) ||
-							( current & SIGMA_NEW ) ||
-							( current & SIGMA_OLD ) ||
-							( right   & SIGMA_NEW ) ||
-								( right   & SIGMA_OLD )) << RLC_BITPOS ;
-
-	localMemoryFence();
-
-			
-	// get information about bit value from the left neighbour and update current RLC bit
-	statePtr[0] |= BIT (left) << RLC_BITPOS;
-
-	localMemoryFence();
-
-	// get the information from RLC bits of successors
-	//atomic_or(statePtr + (y&0xfffffffc - y)*STATE_BUFFER_STRIDE, *statePtr & RLC );
-			
-	localMemoryFence();
-
-	int nbh = 0;
-
-
-    //ZC
-	if (BIT(current)) {
-	//SC
-
-	}
-	localMemoryFence();
+	/////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
 
