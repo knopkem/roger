@@ -94,6 +94,7 @@ void KERNEL run(read_only image2d_t channel) {
 
 	// state buffer
 	LOCAL int state[STATE_BUFFER_SIZE];
+	LOCAL int cxd[STATE_BUFFER_SIZE];
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
 	//0. read data into LDS
@@ -185,8 +186,7 @@ void KERNEL run(read_only image2d_t channel) {
 	// set sigma_new for strip column (sigma_old is zero)
 	statePtr = state + (BOUNDARY + getLocalId(0)) + (BOUNDARY + getLocalId(1))*STATE_BUFFER_STRIDE_X4;
 	for (int i = 0; i < 4; ++i) {
-		int current = *statePtr;
-		*statePtr |= BIT(current);	 // set sigma_new
+		*statePtr |= BIT(*statePtr);	
 		statePtr += STATE_BUFFER_STRIDE;
 
 	}
@@ -200,28 +200,40 @@ void KERNEL run(read_only image2d_t channel) {
 	int left = statePtr[LEFT];
 	int leftBottom = statePtr[LEFT_BOTTOM];
 
-	int nbh = (BIT(top) || BIT(leftTop) || BIT(left) || BIT(leftBottom)) << NBH_BITPOS ;
-	bool doRLC = (nbh == 0);  
 	int rlcCount = 0;               
-	for (int i = 1; i < 4; ++i) {
-		*statePtr |= nbh;	
+	bool doRLC = false;
+	for (int i = 0; i < 4; ++i) {
+		int nbh = (BIT(top) || BIT(leftTop) || BIT(left) || BIT(leftBottom)) << NBH_BITPOS ;
+		statePtr[0] |= nbh;
+		int currentBit = BIT(current);
+
+		// toggle doRLC flag
+		if (i == 0 && !nbh && !currentBit ) {
+			doRLC = true;
+		} else if (doRLC && (nbh || currentBit) ) {
+			doRLC = false;
+		}
+			  
 		if (doRLC) {
-		        
-
+      
+			rlcCount++;
 		} else {
+		   if (nbh) {
+				//ZC
+		   }
+		   if (currentBit) {
+		       //SC
 
-
+		   }
 
 		}
-									
+
 		statePtr += STATE_BUFFER_STRIDE;
-		top = statePtr[TOP];
+		top = current;
+		current = statePtr[0];
 		leftTop = left;
 		left = leftBottom;
 		leftBottom = statePtr[LEFT_BOTTOM];
-		nbh = (BIT(top) || BIT(leftTop) || BIT(left) || BIT(leftBottom)) << NBH_BITPOS;
-		if (doRLC && nbh)
-		   doRLC = false;
 	}
 	localMemoryFence();
 
