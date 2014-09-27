@@ -97,18 +97,6 @@ void KERNEL run(read_only image2d_t channel) {
 	LOCAL int state[STATE_BUFFER_SIZE];
 	LOCAL int cxd[STATE_BUFFER_SIZE];
 
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
-	//0. read data into LDS
-	int2 posIn = (int2)(getGlobalId(0),  (getGlobalId(1)&7)*CODEBLOCKY + getLocalId(1) );
-	LOCAL int* statePtr = state + BOUNDARY + getLocalId(0);
-	for (int i = 0; i < 4; ++i) {
-		int pixel = read_imagei(channel, sampler, posIn).x;
-		*statePtr = (abs(pixel) << PIXEL_START_BITPOS) | ((pixel << INPUT_TO_SIGN_SHIFT) & SIGN);
-		posIn.y++;
-		statePtr += STATE_BUFFER_STRIDE;
-
-	}
-	localMemoryFence();
 
 	///////////////////////////////////////////////////////////////////////////////////
 	//1. Calculate MSB
@@ -120,8 +108,13 @@ void KERNEL run(read_only image2d_t channel) {
 		int maxVal = 0;
 		state[getLocalId(0)] = 0;   //top boundary
 		LOCAL int* statePtr = state + (BOUNDARY + getLocalId(0));
+		int2 posIn = (int2)(getGlobalId(0),  (getGlobalId(1)/8)*CODEBLOCKY);
 		for (int i = 0; i < CODEBLOCKY; ++i) {
-			maxVal = max(maxVal, (*statePtr >> PIXEL_START_BITPOS)&0x7FFF);
+			int pixel = read_imagei(channel, sampler, posIn).x;
+			pixel = (abs(pixel) << PIXEL_START_BITPOS) | ((pixel << INPUT_TO_SIGN_SHIFT) & SIGN);
+			posIn.y++;
+			maxVal = max(maxVal, (pixel>> PIXEL_START_BITPOS)&0x7FFF);
+			statePtr[0] = pixel;
 			statePtr += STATE_BUFFER_STRIDE;	
 		}
 		state[ getLocalId(0) + STATE_BOTTOM_BOUNDARY_OFFSET] = 0;		//bottom boundary
@@ -185,7 +178,7 @@ void KERNEL run(read_only image2d_t channel) {
 	int bp = msbScratch[0] + PIXEL_START_BITPOS;
 
 	// set sigma_new for strip column (sigma_old is zero)
-	statePtr = state + startIndex;
+	LOCAL int* statePtr = state + startIndex;
 	for (int i = 0; i < 4; ++i) {
 		*statePtr |= BIT(*statePtr);	
 		statePtr += STATE_BUFFER_STRIDE;
@@ -249,29 +242,29 @@ void KERNEL run(read_only image2d_t channel) {
 
 		/////////////////////////////
 		// 4. pre-process bit plane
-		/*
-		Algorithm 15 Bit-plane Preprocessing
-		1: //First step
-		2: set sigma_old |= sigma_new
-		3: set nbh |=  old_sigma from neighbouring positions
-		4: if sigma_old = 0 AND nbh != 0 AND bit value = 1 then
-		5: set sigma_new := 1
-		6: end if
-		7: if there is some sigma_new = 1 then
-		8: blockVote := true
-		9: end if
-		10: //Second step
-		11: while blockVote = true do
-		12: set blockVote := false //reset the voting variable
-		13: set nbh :=  sigma_new from the four previous positions
-		14: if sigma_old = 0 AND nbh != 0 AND bit value = 1 then
-		15: set sigma_new = 1
-		16: end if
-		17: if there is some sigma_new = 1 found in this iteration then
-		18: set blockVote := true
-		19: end if
-		20: end while
-		*/
+		
+		//Algorithm 15 Bit-plane Preprocessing
+		//1: //First step
+		//2: set sigma_old |= sigma_new
+		//3: set nbh |=  old_sigma from neighbouring positions
+		//4: if sigma_old = 0 AND nbh != 0 AND bit value = 1 then
+		//5: set sigma_new := 1
+		//6: end if
+		//7: if there is some sigma_new = 1 then
+		//8: blockVote := true
+		//9: end if
+		//10: //Second step
+		//11: while blockVote = true do
+		//12: set blockVote := false //reset the voting variable
+		//13: set nbh :=  sigma_new from the four previous positions
+		//14: if sigma_old = 0 AND nbh != 0 AND bit value = 1 then
+		//15: set sigma_new = 1
+		//16: end if
+		//17: if there is some sigma_new = 1 found in this iteration then
+		//18: set blockVote := true
+		//19: end if
+		//20: end while
+		
 
 		// i) migrate sigma_new to sigma_old
 		statePtr = state + startIndex;
@@ -281,6 +274,7 @@ void KERNEL run(read_only image2d_t channel) {
 
 		}
 		localMemoryFence();
+		
 
 		// ii) update nbh
 		statePtr = state + startIndex;
@@ -323,18 +317,135 @@ void KERNEL run(read_only image2d_t channel) {
 			rightBottom = statePtr[RIGHT_BOTTOM];
 		}
 		localMemoryFence();
-
+		
 		/////////////////////////
 		// 5. Significiance 
+		statePtr = state + startIndex;
 
+		top = statePtr[TOP];
+		leftTop = statePtr[LEFT_TOP];
+		rightTop = statePtr[RIGHT_TOP];
+		left = statePtr[LEFT];
+		current = statePtr[0];
+		right = statePtr[RIGHT];
+		leftBottom = statePtr[LEFT_BOTTOM];
+		bottom = statePtr[BOTTOM];
+		rightBottom = statePtr[RIGHT_BOTTOM];
+		for (int i = 0; i < 4; ++i) {
+
+			int nbh = ((leftTop & SIGMA_OLD) |
+							 ( top & SIGMA_OLD) |
+							 ( rightTop &  SIGMA_OLD) |
+							 ( left & SIGMA_OLD) | 
+							 ( right & SIGMA_OLD) | 
+							 ( leftBottom & SIGMA_OLD) |
+							 ( bottom & SIGMA_OLD) |
+							 ( rightBottom & SIGMA_OLD)  ) << NBH_BITPOS; 
+
+			current |= nbh;
+			if ( !(current & NBH) && nbh && BIT(current) ) {
+			    current |= SIGMA_NEW;
+
+			}
+			*statePtr = current;
+			statePtr += STATE_BUFFER_STRIDE;	
+			top = current;
+			leftTop = left;
+			rightTop = right;
+			left = leftBottom;
+			current = statePtr[0];
+			right = rightBottom;
+			leftBottom = statePtr[LEFT_BOTTOM];
+			bottom = statePtr[BOTTOM];
+			rightBottom = statePtr[RIGHT_BOTTOM];
+		}
+		localMemoryFence();
 
 		//////////////////////////
 		// 6. Magnitude Refinement
+		statePtr = state + startIndex;
 
+		top = statePtr[TOP];
+		leftTop = statePtr[LEFT_TOP];
+		rightTop = statePtr[RIGHT_TOP];
+		left = statePtr[LEFT];
+		current = statePtr[0];
+		right = statePtr[RIGHT];
+		leftBottom = statePtr[LEFT_BOTTOM];
+		bottom = statePtr[BOTTOM];
+		rightBottom = statePtr[RIGHT_BOTTOM];
+		for (int i = 0; i < 4; ++i) {
+
+			int nbh = ((leftTop & SIGMA_OLD) |
+							 ( top & SIGMA_OLD) |
+							 ( rightTop &  SIGMA_OLD) |
+							 ( left & SIGMA_OLD) | 
+							 ( right & SIGMA_OLD) | 
+							 ( leftBottom & SIGMA_OLD) |
+							 ( bottom & SIGMA_OLD) |
+							 ( rightBottom & SIGMA_OLD)  ) << NBH_BITPOS; 
+
+			current |= nbh;
+			if ( !(current & NBH) && nbh && BIT(current) ) {
+			    current |= SIGMA_NEW;
+
+			}
+			*statePtr = current;
+			statePtr += STATE_BUFFER_STRIDE;	
+			top = current;
+			leftTop = left;
+			rightTop = right;
+			left = leftBottom;
+			current = statePtr[0];
+			right = rightBottom;
+			leftBottom = statePtr[LEFT_BOTTOM];
+			bottom = statePtr[BOTTOM];
+			rightBottom = statePtr[RIGHT_BOTTOM];
+		}
+		localMemoryFence();
 
 		///////////////////////
 		// 7. cleanup
+		statePtr = state + startIndex;
 
+		top = statePtr[TOP];
+		leftTop = statePtr[LEFT_TOP];
+		rightTop = statePtr[RIGHT_TOP];
+		left = statePtr[LEFT];
+		current = statePtr[0];
+		right = statePtr[RIGHT];
+		leftBottom = statePtr[LEFT_BOTTOM];
+		bottom = statePtr[BOTTOM];
+		rightBottom = statePtr[RIGHT_BOTTOM];
+		for (int i = 0; i < 4; ++i) {
+
+			int nbh = ((leftTop & SIGMA_OLD) |
+							 ( top & SIGMA_OLD) |
+							 ( rightTop &  SIGMA_OLD) |
+							 ( left & SIGMA_OLD) | 
+							 ( right & SIGMA_OLD) | 
+							 ( leftBottom & SIGMA_OLD) |
+							 ( bottom & SIGMA_OLD) |
+							 ( rightBottom & SIGMA_OLD)  ) << NBH_BITPOS; 
+
+			current |= nbh;
+			if ( !(current & NBH) && nbh && BIT(current) ) {
+			    current |= SIGMA_NEW;
+
+			}
+			*statePtr = current;
+			statePtr += STATE_BUFFER_STRIDE;	
+			top = current;
+			leftTop = left;
+			rightTop = right;
+			left = leftBottom;
+			current = statePtr[0];
+			right = rightBottom;
+			leftBottom = statePtr[LEFT_BOTTOM];
+			bottom = statePtr[BOTTOM];
+			rightBottom = statePtr[RIGHT_BOTTOM];
+		}
+		localMemoryFence();
 
 		bp--;
 	}
