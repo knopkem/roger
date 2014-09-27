@@ -62,6 +62,7 @@ stripe are scanned from left to right.
 // bit positions (0 based indices)
 #define INPUT_SIGN_BITPOS  15
  
+#define SIGMA_OLD_BITPOS   0x1
 #define NBH_BITPOS         0x2
 #define RLC_BITPOS         0x4
 #define PIXEL_START_BITPOS 0xA 
@@ -141,26 +142,26 @@ void KERNEL run(read_only image2d_t channel) {
 	}
 	localMemoryFence();
 
-	if (getLocalId(1) == 0) {
-		//calculate global msb
-		if (getLocalId(0) == 0) {
-			int4 mx = (int4)(maxSigBit);
+	//calculate global msb
+	if (getLocalId(0) + getLocalId(1) == 0) {
+		int4 mx = (int4)(maxSigBit);
 
-			LOCAL int* scratchPtr = msbScratch;
-			for(int i=0; i < CODEBLOCKX; i+=4) {
-				mx = max(mx,(int4)(msbScratch[i],msbScratch[i+1],msbScratch[i+2],msbScratch[i+3]));
-			}
-			maxSigBit = mx.x;
-			maxSigBit = max(maxSigBit, mx.y);
-			maxSigBit = max(maxSigBit, mx.z);
-			maxSigBit = max(maxSigBit, mx.w);
-			msbScratch[0] = maxSigBit;
+		LOCAL int* scratchPtr = msbScratch;
+		for(int i=0; i < CODEBLOCKX; i+=4) {
+			mx = max(mx,(int4)(msbScratch[i],msbScratch[i+1],msbScratch[i+2],msbScratch[i+3]));
 		}
+		maxSigBit = mx.x;
+		maxSigBit = max(maxSigBit, mx.y);
+		maxSigBit = max(maxSigBit, mx.z);
+		maxSigBit = max(maxSigBit, mx.w);
+		msbScratch[0] = maxSigBit;
 	}
 	localMemoryFence();
 
 	if (msbScratch[0] == -1)
 		return;
+
+	int startIndex = (BOUNDARY + getLocalId(0)) + (BOUNDARY + getLocalId(1))*STATE_BUFFER_STRIDE_X4;
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// 2. CUP on MSB
@@ -184,7 +185,7 @@ void KERNEL run(read_only image2d_t channel) {
 	int bp = msbScratch[0] + PIXEL_START_BITPOS;
 
 	// set sigma_new for strip column (sigma_old is zero)
-	statePtr = state + (BOUNDARY + getLocalId(0)) + (BOUNDARY + getLocalId(1))*STATE_BUFFER_STRIDE_X4;
+	statePtr = state + startIndex;
 	for (int i = 0; i < 4; ++i) {
 		*statePtr |= BIT(*statePtr);	
 		statePtr += STATE_BUFFER_STRIDE;
@@ -193,7 +194,7 @@ void KERNEL run(read_only image2d_t channel) {
 	localMemoryFence();
 		
 	// set rlc nbh for strip column
-	statePtr = state + (BOUNDARY + getLocalId(0)) + (BOUNDARY + getLocalId(1))*STATE_BUFFER_STRIDE_X4;
+	statePtr = state + startIndex;
 	int current = statePtr[0];
 	int top = statePtr[TOP];
 	int leftTop = statePtr[LEFT_TOP];
@@ -238,6 +239,105 @@ void KERNEL run(read_only image2d_t channel) {
 	localMemoryFence();
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////
+	// 3. Processs rest of bit plans
+	bp--;
+	LOCAL char blockVote;
+	localMemoryFence();
+
+	while (bp >= 0) {
+		blockVote = 1;
+
+		/////////////////////////////
+		// 4. pre-process bit plane
+		/*
+		Algorithm 15 Bit-plane Preprocessing
+		1: //First step
+		2: set sigma_old |= sigma_new
+		3: set nbh |=  old_sigma from neighbouring positions
+		4: if sigma_old = 0 AND nbh != 0 AND bit value = 1 then
+		5: set sigma_new := 1
+		6: end if
+		7: if there is some sigma_new = 1 then
+		8: blockVote := true
+		9: end if
+		10: //Second step
+		11: while blockVote = true do
+		12: set blockVote := false //reset the voting variable
+		13: set nbh :=  sigma_new from the four previous positions
+		14: if sigma_old = 0 AND nbh != 0 AND bit value = 1 then
+		15: set sigma_new = 1
+		16: end if
+		17: if there is some sigma_new = 1 found in this iteration then
+		18: set blockVote := true
+		19: end if
+		20: end while
+		*/
+
+		// i) migrate sigma_new to sigma_old
+		statePtr = state + startIndex;
+		for (int i = 0; i < 4; ++i) {
+			*statePtr |= ((*statePtr) & SIGMA_NEW) << SIGMA_OLD_BITPOS;
+			statePtr += STATE_BUFFER_STRIDE;	
+
+		}
+		localMemoryFence();
+
+		// ii) update nbh
+		statePtr = state + startIndex;
+
+		int top = statePtr[TOP];
+		int leftTop = statePtr[LEFT_TOP];
+		int rightTop = statePtr[RIGHT_TOP];
+		int left = statePtr[LEFT];
+		int current = statePtr[0];
+		int right = statePtr[RIGHT];
+		int leftBottom = statePtr[LEFT_BOTTOM];
+		int bottom = statePtr[BOTTOM];
+		int rightBottom = statePtr[RIGHT_BOTTOM];
+		for (int i = 0; i < 4; ++i) {
+
+			int nbh = ((leftTop & SIGMA_OLD) |
+							 ( top & SIGMA_OLD) |
+							 ( rightTop &  SIGMA_OLD) |
+							 ( left & SIGMA_OLD) | 
+							 ( right & SIGMA_OLD) | 
+							 ( leftBottom & SIGMA_OLD) |
+							 ( bottom & SIGMA_OLD) |
+							 ( rightBottom & SIGMA_OLD)  ) << NBH_BITPOS; 
+
+			current |= nbh;
+			if ( !(current & NBH) && nbh && BIT(current) ) {
+			    current |= SIGMA_NEW;
+
+			}
+			*statePtr = current;
+			statePtr += STATE_BUFFER_STRIDE;	
+			top = current;
+			leftTop = left;
+			rightTop = right;
+			left = leftBottom;
+			current = statePtr[0];
+			right = rightBottom;
+			leftBottom = statePtr[LEFT_BOTTOM];
+			bottom = statePtr[BOTTOM];
+			rightBottom = statePtr[RIGHT_BOTTOM];
+		}
+		localMemoryFence();
+
+		/////////////////////////
+		// 5. Significiance 
+
+
+		//////////////////////////
+		// 6. Magnitude Refinement
+
+
+		///////////////////////
+		// 7. cleanup
+
+
+		bp--;
+	}
 }
 
 
