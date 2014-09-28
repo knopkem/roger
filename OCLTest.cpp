@@ -56,7 +56,10 @@ template<typename T, typename U> void OCLTest<T,U>::test()
 
     // Read the input image
 	Size dsize;
-    Mat img_src = imread(OCL_SAMPLE_IMAGE_NAME, CV_8UC3);
+    Mat img_src = imread(OCL_SAMPLE_IMAGE_NAME, 1);
+
+
+
 	 int alignCols=8, alignRows=64;
 
     if (! img_src.empty())
@@ -76,23 +79,22 @@ template<typename T, typename U> void OCLTest<T,U>::test()
 
     Mat img_dst = Mat::zeros(img_src.size(), CV_8UC1);
     int imageSize = img_src.cols * img_src.rows;
+	
+	Mat channel[3];
+    split(img_src, channel);
 
-
-
-  //   imshow("Before:", img_src);
- //  waitKey();
-
-	T* input = new T[imageSize];
-    for (int i = 0; i < imageSize; ++i) {
-        input[i] = (T)( (img_src.data[i]*16) - 2048);
-    }
-
-	//simulate RGB image
 	std::vector<T*> components;
-	components.push_back(input);
-	components.push_back(input);
-	components.push_back(input);
-	components.push_back(input);
+	T* input[4]; 
+	for (int chan = 0; chan < 4; ++chan) {
+		int comp = chan;
+		if (comp == 3)
+			comp = 2;
+		input[chan] = new T[imageSize];
+		for (int i = 0; i < imageSize; ++i) {
+			input[chan][i] = (T)( (channel[comp].data[i]*16) - 2048);
+		}
+		components.push_back(input[chan]);
+	}
 
 	int levels = 5;
 	int precision = 8;
@@ -127,7 +129,8 @@ template<typename T, typename U> void OCLTest<T,U>::test()
 	}
 
 	encoder->unmapDWTOut(results);
-	delete[] input;
+	for (int chan = 0; chan < 4; ++chan)
+		delete[] input[chan];
 
     imshow("After:", img_dst);
     waitKey();

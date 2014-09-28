@@ -237,7 +237,7 @@ void KERNEL run(read_only image2d_t channel) {
 	LOCAL char blockVote;
 	localMemoryFence();
 
-	while (bp >= 0) {
+	while (bp >= PIXEL_START_BITPOS) {
 		blockVote = 1;
 
 		/////////////////////////////
