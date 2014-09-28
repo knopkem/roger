@@ -61,9 +61,11 @@ stripe are scanned from left to right.
 
 // bit positions (0 based indices)
 #define INPUT_SIGN_BITPOS  15
- 
+
+#define SIGMA_NEW_BITPOS   0x1 
 #define SIGMA_OLD_BITPOS   0x1
 #define NBH_BITPOS         0x2
+#define SIGMA_OLD_TO_NBH_SHIFT 0x1
 #define RLC_BITPOS         0x4
 #define PIXEL_START_BITPOS 0xA 
 #define PIXEL_END_BITPOS   0x18 
@@ -235,10 +237,9 @@ void KERNEL run(read_only image2d_t channel) {
 	// 3. Processs rest of bit plans
 	bp--;
 	LOCAL char blockVote;
-	localMemoryFence();
 
 	while (bp >= PIXEL_START_BITPOS) {
-		blockVote = 1;
+		blockVote = 0;
 
 		/////////////////////////////
 		// 4. pre-process bit plane
@@ -297,11 +298,12 @@ void KERNEL run(read_only image2d_t channel) {
 							 ( right & SIGMA_OLD) | 
 							 ( leftBottom & SIGMA_OLD) |
 							 ( bottom & SIGMA_OLD) |
-							 ( rightBottom & SIGMA_OLD)  ) << NBH_BITPOS; 
+							 ( rightBottom & SIGMA_OLD)  ) << SIGMA_OLD_TO_NBH_SHIFT; 
 
 			current |= nbh;
 			if ( !(current & NBH) && nbh && BIT(current) ) {
 			    current |= SIGMA_NEW;
+				blockVote = 1;
 
 			}
 			*statePtr = current;
@@ -317,6 +319,40 @@ void KERNEL run(read_only image2d_t channel) {
 			rightBottom = statePtr[RIGHT_BOTTOM];
 		}
 		localMemoryFence();
+
+		// iii) block vote on sigma new
+		while (blockVote) {
+			statePtr = state + startIndex;
+
+			int top = statePtr[TOP];
+			int leftTop = statePtr[LEFT_TOP];
+			int left = statePtr[LEFT];
+			int current = statePtr[0];
+			int leftBottom = statePtr[LEFT_BOTTOM];
+
+			for (int i = 0; i < 4; ++i) {
+				int nbh = ((leftTop & SIGMA_NEW) |
+					( top & SIGMA_NEW) |
+					( left & SIGMA_NEW) | 
+					( leftBottom & SIGMA_NEW) ) << NBH_BITPOS; 
+
+				current |= nbh;
+				if ( !(current & NBH) && nbh && BIT(current) ) {
+					current |= SIGMA_NEW;
+					blockVote = 1;
+
+				}
+				statePtr[0] = current;
+				statePtr += STATE_BUFFER_STRIDE;
+				top = current;
+				current = statePtr[0];
+				leftTop = left;
+				left = leftBottom;
+				leftBottom = statePtr[LEFT_BOTTOM];
+			}
+			localMemoryFence();
+
+		}
 		
 		/////////////////////////
 		// 5. Significiance 
