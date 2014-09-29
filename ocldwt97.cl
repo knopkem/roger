@@ -114,7 +114,7 @@ current_U2 = current_U1 + U2*(minusOne_P2 + plusOne_P2)
 /*
 Quantization:
 
-CONSTANT float norms[4][6] = {
+static float norms[4][6] = {
 	{1.000, 1.965, 4.177, 8.403, 16.90, 33.84},
 	{2.022, 3.989, 8.355, 17.04, 34.27, 68.63},
 	{2.022, 3.989, 8.355, 17.04, 34.27, 68.63},
@@ -123,30 +123,28 @@ CONSTANT float norms[4][6] = {
 
 
 Each resolution has four bands LL LH HL HH
+Orientation Code for bands     0  1  2  3
 Gain for the bands:            0  1  1  2
 Number of bits per sample      precision + gain
 base_stepsize                  (1 << (gain)) / norm 
  
 
-void opj_dwt_calc_explicit_stepsizes(int numresolutions, int prec) {
-	int numbands, bandno;
-	numbands = 3 * numresolutions - 2;
-	for (bandno = 0; bandno < numbands; bandno) {
+void calc_explicit_stepsizes(int numresolutions, int prec) {
+	int numbands = 3 * numresolutions - 2;
+	for (int bandno = 0; bandno < numbands; bandno) {
 		
-		float stepsize;
-		int resno, level, orient, gain;
-
-		resno = (bandno == 0) ? 0 : ((bandno - 1) / 3 + 1);
-		orient = (bandno == 0) ? 0 : ((bandno - 1) % 3 + 1);
-		level = numresolutions - 1 - resno;
-		gain = (orient == 0) ? 0 : (((orient == 1) || (orient == 2)) ? 1 : 2);
+		int resno = (bandno == 0) ? 0 : ((bandno - 1) / 3 + 1);
+		int orient = (bandno == 0) ? 0 : ((bandno - 1) % 3 + 1);
+		int level = numresolutions - 1 - resno;
+		int gain = (orient == 0) ? 0 : (((orient == 1) || (orient == 2)) ? 1 : 2);
+		int numbps = prec + gain;
 		float norm = norms[orient][level];
-		base_stepsize = floor(((1 << (gain)) / norm) * 8192);
+		int base_stepsize = floor(((1 << (gain)) / norm) * 8192);
 		int p = int_floorlog2(base_stepsize) - 13;
 		int n = 11 - int_floorlog2(base_stepsize);
-		mant = (n < 0 ? stepsize >> -n : base_stepsize << n) & 0x7ff;
-		expn = numbps - p;
-		stepsize = (1.0 + mant / 2048.0) * pow(2.0, (numbps - expn));  
+		int mant = (n < 0 ? base_stepsize >> -n : base_stepsize << n) & 0x7ff;
+		int expn = numbps - p;
+		float stepsize = (1.0 + mant / 2048.0) * pow(2.0, (numbps - expn));  
 	}
 }
 

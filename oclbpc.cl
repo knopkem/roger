@@ -156,6 +156,8 @@ void KERNEL run(read_only image2d_t channel) {
 	if (msbScratch[0] == -1)
 		return;
 
+		
+
 	int startIndex = (BOUNDARY + getLocalId(0)) + (BOUNDARY + getLocalId(1))*STATE_BUFFER_STRIDE_X4;
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -233,6 +235,7 @@ void KERNEL run(read_only image2d_t channel) {
 	}
 	localMemoryFence();
 
+	
 	/////////////////////////////////////////////////////////////////////////////////////////////////
 	// 3. Processs rest of bit plans
 	bp--;
@@ -291,7 +294,7 @@ void KERNEL run(read_only image2d_t channel) {
 		int rightBottom = statePtr[RIGHT_BOTTOM];
 		for (int i = 0; i < 4; ++i) {
 
-			int nbh = ((leftTop & SIGMA_OLD) |
+			current |= ((leftTop & SIGMA_OLD) |
 							 ( top & SIGMA_OLD) |
 							 ( rightTop &  SIGMA_OLD) |
 							 ( left & SIGMA_OLD) | 
@@ -300,8 +303,7 @@ void KERNEL run(read_only image2d_t channel) {
 							 ( bottom & SIGMA_OLD) |
 							 ( rightBottom & SIGMA_OLD)  ) << SIGMA_OLD_TO_NBH_SHIFT; 
 
-			current |= nbh;
-			if ( !(current & NBH) && nbh && BIT(current) ) {
+			if ( BIT(current) && (current & NBH) ) {
 			    current |= SIGMA_NEW;
 				blockVote = 1;
 
@@ -320,8 +322,12 @@ void KERNEL run(read_only image2d_t channel) {
 		}
 		localMemoryFence();
 
+		
 		// iii) block vote on sigma new
 		while (blockVote) {
+		    blockVote = 0;
+			localMemoryFence();
+
 			statePtr = state + startIndex;
 
 			int top = statePtr[TOP];
@@ -331,13 +337,13 @@ void KERNEL run(read_only image2d_t channel) {
 			int leftBottom = statePtr[LEFT_BOTTOM];
 
 			for (int i = 0; i < 4; ++i) {
-				int nbh = ((leftTop & SIGMA_NEW) |
-					( top & SIGMA_NEW) |
-					( left & SIGMA_NEW) | 
-					( leftBottom & SIGMA_NEW) ) << NBH_BITPOS; 
 
-				current |= nbh;
-				if ( !(current & NBH) && nbh && BIT(current) ) {
+				current |= ((leftTop & SIGMA_NEW) |
+							( top & SIGMA_NEW) |
+							( left & SIGMA_NEW) | 
+							( leftBottom & SIGMA_NEW) ) << NBH_BITPOS; 
+
+				if (  BIT(current) && !(current & SIGMA_NEW) && (current & NBH)) {
 					current |= SIGMA_NEW;
 					blockVote = 1;
 
@@ -355,7 +361,7 @@ void KERNEL run(read_only image2d_t channel) {
 		}
 		
 		/////////////////////////
-		// 5. Significiance 
+		// 5. Significance 
 		statePtr = state + startIndex;
 
 		top = statePtr[TOP];
