@@ -185,7 +185,9 @@ void KERNEL run(read_only image2d_t channel) {
 	// set sigma_new for strip column (sigma_old is zero)
 	LOCAL int* statePtr = state + startIndex;
 	for (int i = 0; i < 4; ++i) {
-		*statePtr |= BIT(*statePtr);	
+		int current = statePtr[0];
+		current |= BIT(current);
+		*statePtr = current;	
 		statePtr += STATE_BUFFER_STRIDE;
 
 	}
@@ -202,11 +204,14 @@ void KERNEL run(read_only image2d_t channel) {
 	int rlcCount = 0;               
 	bool doRLC = false;
 	for (int i = 0; i < 4; ++i) {
-		int nbh = (BIT(top) || BIT(leftTop) || BIT(left) || BIT(leftBottom)) << NBH_BITPOS ;
-		statePtr[0] |= nbh;
-		int currentBit = BIT(current);
+		current = statePtr[0];
+		int nbh = (BIT(top) | BIT(leftTop) | BIT(left) | BIT(leftBottom)) << NBH_BITPOS ;
+		current |= nbh;
+		statePtr[0] = current;
+
 
 		// toggle doRLC flag
+		int currentBit = BIT(current);
 		if (i == 0 && !nbh && !currentBit ) {
 			doRLC = true;
 		} else if (doRLC && (nbh || currentBit) ) {
