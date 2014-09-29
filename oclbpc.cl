@@ -71,13 +71,14 @@ stripe are scanned from left to right.
 #define PIXEL_END_BITPOS   0x18 
 #define SIGN_BITPOS        0x19 
 
-#define SIGMA_NEW			 0x1		  //0
-#define SIGMA_OLD			 0x10		  //1
-#define NBH					 0x20		  //2
-#define RLC					 0x80		  //4
-#define RLC_D_POSITION		 0x380        //6-9
-#define PIXEL				 0x7FFF0000   //10-24
-#define SIGN				 0x2000000    //25
+#define SIGMA_NEW			 0x1		  //position 0
+#define NOT_SIGMA_NEW        0xFFFFFFFE   // ~SIGMA_NEW
+#define SIGMA_OLD			 0x10		  //position  1
+#define NBH					 0x20		  //position  2
+#define RLC					 0x80		  //position  4
+#define RLC_D_POSITION		 0x380        //positions 6-9
+#define PIXEL				 0x7FFF0000   //positions 10-24
+#define SIGN				 0x2000000    //position  25
 
 #define INPUT_TO_SIGN_SHIFT 10
 
@@ -270,10 +271,13 @@ void KERNEL run(read_only image2d_t channel) {
 		//20: end while
 		
 
-		// i) migrate sigma_new to sigma_old
+		// i) migrate sigma_new to sigma_old, and clear sigma new bit
 		statePtr = state + startIndex;
 		for (int i = 0; i < 4; ++i) {
-			*statePtr |= ((*statePtr) & SIGMA_NEW) << SIGMA_OLD_BITPOS;
+		    int current = *statePtr;
+			current |= ((current) & SIGMA_NEW) << SIGMA_OLD_BITPOS;  
+			current &= NOT_SIGMA_NEW;  // clear sigma new 
+			*statePtr = current;
 			statePtr += STATE_BUFFER_STRIDE;	
 
 		}
