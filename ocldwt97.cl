@@ -110,57 +110,6 @@ current_U2 = current_U1 + U2*(minusOne_P2 + plusOne_P2)
 
 */
   
-  
-/*
-Quantization:
-
-static float norms[4][6] = {
-	{1.000, 1.965, 4.177, 8.403, 16.90, 33.84},
-	{2.022, 3.989, 8.355, 17.04, 34.27, 68.63},
-	{2.022, 3.989, 8.355, 17.04, 34.27, 68.63},
-	{2.080, 3.865, 8.307, 17.18, 34.71, 69.59}
-};
-
-
-Each resolution has four bands LL LH HL HH
-Orientation Code for bands     0  1  2  3
-Gain for the bands:            0  1  1  2
-Number of bits per sample      precision + gain
-base_stepsize                  (1 << (gain)) / norm 
- 
-
-void calc_explicit_stepsizes(int numresolutions, int prec) {
-	int numbands = 3 * numresolutions - 2;
-	for (int bandno = 0; bandno < numbands; bandno) {
-		
-		int resno = (bandno == 0) ? 0 : ((bandno - 1) / 3 + 1);
-		int orient = (bandno == 0) ? 0 : ((bandno - 1) % 3 + 1);
-		int level = numresolutions - 1 - resno;
-		int gain = (orient == 0) ? 0 : (((orient == 1) || (orient == 2)) ? 1 : 2);
-		int numbps = prec + gain;
-		float norm = norms[orient][level];
-		int base_stepsize = floor(((1 << (gain)) / norm) * 8192);
-		int p = int_floorlog2(base_stepsize) - 13;
-		int n = 11 - int_floorlog2(base_stepsize);
-		int mant = (n < 0 ? base_stepsize >> -n : base_stepsize << n) & 0x7ff;
-		int expn = numbps - p;
-		float stepsize = (1.0 + mant / 2048.0) * pow(2.0, (numbps - expn));  
-	}
-}
-
-//Get logarithm of an integer and round downwards
-//@return Returns log2(a)
-int int_floorlog2(OPJ_INT32 a) {
-	int l;
-	for (l = 0; a > 1; l) {
-		a >>= 1;
-	}
-	return l;
-}
-                                                                                                                                          
-*/
-
-
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -489,13 +438,13 @@ void writeQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_only 
 	    if (posOut.x >= halfWidth)
 			break;
 
-		write_imagei(odata, posOut, convert_int4_rtz(ceil(quantLow * readPixel(currentScratch))) );
+		write_imagei(odata, posOut, convert_int4_rte(ceil(quantLow * readPixel(currentScratch))) );
 
 		// high pass
 		currentScratch += HORIZONTAL_STRIDE ;
 		posOut.x+= halfWidth;
 
-		write_imagei(odata, posOut, convert_int4_rtz(ceil(quantHigh * readPixel(currentScratch))) );
+		write_imagei(odata, posOut, convert_int4_rte(ceil(quantHigh * readPixel(currentScratch))) );
 
 		currentScratch += HORIZONTAL_STRIDE;
 		posOut.x -= (halfWidth - 1);
@@ -524,7 +473,7 @@ void writeMixedQuantizedRowToOutput(LOCAL float* restrict currentScratch, write_
 		currentScratch += HORIZONTAL_STRIDE ;
 		posOut.x+= halfWidth;
 
-		write_imagei(odata, posOut, convert_int4_rtz(ceil(quantHigh * readPixel(currentScratch))) );
+		write_imagei(odata, posOut, convert_int4_rte(ceil(quantHigh * readPixel(currentScratch))) );
 
 		currentScratch += HORIZONTAL_STRIDE;
 		posOut.x -= (halfWidth - 1);

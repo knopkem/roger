@@ -21,6 +21,21 @@
 #include "OCLDWT.cpp"
 
 
+
+//Quantization:
+
+static float norms[4][6] = {
+	{1.000f, 1.965f, 4.177f, 8.403f, 16.90f, 33.84f},
+	{2.022f, 3.989f, 8.355f, 17.04f, 34.27f, 68.63f},
+	{2.022f, 3.989f, 8.355f, 17.04f, 34.27f, 68.63f},
+	{2.080f, 3.865f, 8.307f, 17.18f, 34.71f, 69.59f}
+};
+
+                                                                                                                                
+
+
+
+
 template<typename T> OCLDWTForward<T>::OCLDWTForward(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr) : OCLDWT<T>(initInfo, memMgr),
 	               	forward53(new OCLKernel( KernelInitInfo(initInfo, "ocldwt53.cl", "run") )),
 					forward97(new OCLKernel( KernelInitInfo(initInfo, "ocldwt97.cl", memMgr->isOnlyDwtOut() ? "run" : "runWithQuantization") ))
@@ -38,7 +53,7 @@ template<typename T> OCLDWTForward<T>::~OCLDWTForward(void)
 		delete forward97;
 }
 
-template<typename T> void OCLDWTForward<T>::doRun(bool lossy, size_t w, size_t h, size_t windowX, size_t windowY, size_t level, size_t levels, float quantLL, float quantLH, float quantHH) {
+template<typename T> void OCLDWTForward<T>::doRun(bool lossy, size_t w, size_t h, size_t windowX, size_t windowY, size_t level, size_t levels) {
 
 	OCLKernel* targetKernel = lossy?forward97:forward53;
 	const size_t steps = divRndUp(w, 15 * windowX);
@@ -52,6 +67,9 @@ template<typename T> void OCLDWTForward<T>::doRun(bool lossy, size_t w, size_t h
 		return;
 	// set dwt + quantization kernel arguments
 	if (lossy && !memoryManager->isOnlyDwtOut() ) {
+		float quantLL =  getStep(levels,level, 0, memoryManager->getPrecision());
+		float quantLH =  getStep(levels,level, 1, memoryManager->getPrecision());
+		float quantHH =  getStep(levels,level, 3, memoryManager->getPrecision());
 		if (setKernelArgsQuant(targetKernel, quantLL, quantLH, quantHH) 
 				!= DeviceSuccess)
 			return;
@@ -75,9 +93,43 @@ template<typename T> void OCLDWTForward<T>::doRun(bool lossy, size_t w, size_t h
 
 }
 
-template<typename T> void OCLDWTForward<T>::run(bool lossy, size_t w,	size_t h, size_t windowX, size_t windowY, size_t level, size_t levels, float quantLL, float quantLH, float quantHH) {
 
-	doRun(lossy, w,h,windowX, windowY,level,levels, quantLL, quantLH, quantHH);
+//Each resolution has four bands LL LH HL HH
+//Orientation Code for bands     0  1  2  3
+//Gain for the bands:            0  1  1  2
+//Number of bits per sample      precision + gain
+//base_stepsize                  (1 << (gain)) / norm 
+ 
+
+//Get logarithm of an integer and round downwards
+//@return Returns log2(a)
+template<typename T> int OCLDWTForward<T>::int_floorlog2(int a) {
+	int l;
+	for (l = 0; a > 1; l) {
+		a >>= 1;
+	}
+	return l;
+}
+     
+
+template<typename T> float OCLDWTForward<T>::getStep(size_t numresolutions, size_t level, size_t orient, size_t prec) {
+	int gain = (orient == 0) ? 0 : (((orient == 1) || (orient == 2)) ? 1 : 2);
+	int numbps = prec + gain;
+	float norm = norms[orient][level];
+	int base_stepsize = floor(((1 << (gain)) / norm) * 8192);
+	int p = int_floorlog2(base_stepsize) - 13;
+	int n = 11 - int_floorlog2(base_stepsize);
+	int mant = (n < 0 ? base_stepsize >> -n : base_stepsize << n) & 0x7ff;
+	int expn = numbps - p;
+	//return (1.0 + mant / 2048.0) * pow(2.0, (numbps - expn));  
+	return 0.5f;
+}
+
+     
+
+template<typename T> void OCLDWTForward<T>::run(bool lossy, size_t w,	size_t h, size_t windowX, size_t windowY, size_t level, size_t levels) {
+
+	doRun(lossy, w,h,windowX, windowY,level,levels);
 	if(level < levels-1) {
       // copy output's LL band back into input buffer
       const size_t llSizeX = divRndUp(w, 2);
@@ -86,6 +138,6 @@ template<typename T> void OCLDWTForward<T>::run(bool lossy, size_t w,	size_t h, 
 	  level++;
 	  
       // run remaining levels of FDWT
-      run(lossy, llSizeX, llSizeY, windowX, windowY, level,levels, quantLL, quantLH, quantHH);
+      run(lossy, llSizeX, llSizeY, windowX, windowY, level,levels);
     }
 }

@@ -28,11 +28,13 @@ public:
 	OCLDWTForward(KernelInitInfoBase initInfo, OCLMemoryManager<T>* memMgr);
 	~OCLDWTForward(void);
 
-	void run(bool lossy, size_t w,	size_t h,size_t windowX, size_t windowY, size_t level, size_t levels, float quantLL, float quantLH, float quantHH);
+	void run(bool lossy, size_t w,	size_t h,size_t windowX, size_t windowY, size_t level, size_t levels);
 private:
-	void doRun(bool lossy, size_t w,	size_t h,size_t windowX, size_t windowY, size_t level, size_t levels, float quantLL, float quantLH, float quantHH);
+	void doRun(bool lossy, size_t w,	size_t h,size_t windowX, size_t windowY, size_t level, size_t levels);
 	OCLKernel* forward53;
 	OCLKernel* forward97;
+	 int int_floorlog2(int a);
+	 float getStep(size_t numresolutions, size_t level, size_t orient, size_t prec);
 
 };
 

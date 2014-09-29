@@ -45,7 +45,7 @@ template<typename T> OCLEncoder<T>::~OCLEncoder(){
 
 template<typename T> void OCLEncoder<T>::run(std::vector<T*> components,size_t w,size_t h, size_t levels, size_t precision){
 	OCLEncodeDecode::run(components,w,h,levels,precision);
-	dwt->run(lossy, w,h, 8,128,0,levels, 1,1,1);
+	dwt->run(lossy, w,h, precision,128,0,levels);
 	if (!memoryManager->isOnlyDwtOut() ) {
 		if (components.size() > 1)
 			rgbToPlanar->run();

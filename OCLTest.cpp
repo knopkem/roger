@@ -31,7 +31,7 @@ using namespace cv;
 #include "OCLDWTForward.cpp"
 #include "OCLDWTRev.cpp"
 
-#define OCL_SAMPLE_IMAGE_NAME "baboon.png"
+#define OCL_SAMPLE_IMAGE_NAME "4096x4096.jpg"
 
 
 template<typename T, typename U>  OCLTest<T,U>::OCLTest(bool isLossy, bool outputDwt) : encoder(NULL),
@@ -91,7 +91,7 @@ template<typename T, typename U> void OCLTest<T,U>::test()
 			comp = 2;
 		input[chan] = new T[imageSize];
 		for (int i = 0; i < imageSize; ++i) {
-			input[chan][i] = (T)( (channel[comp].data[i]*16) - 2048);
+			input[chan][i] = (T)( (channel[comp].data[i]) - 128);
 		}
 		components.push_back(input[chan]);
 	}
@@ -116,7 +116,7 @@ template<typename T, typename U> void OCLTest<T,U>::test()
 	if (results) {
 		size_t resultsIndex=0;
 		for (int i = 0; i < imageSize; ++i){
-			int temp =  (int)((results[resultsIndex] + 2048)/16) ;
+			int temp =  (int)(results[resultsIndex] + 128) ;
 			if (temp < 0)
 				temp = 0;
 			if (temp > 255)
