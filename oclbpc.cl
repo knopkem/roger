@@ -307,7 +307,7 @@ void KERNEL run(read_only image2d_t channel) {
 							 ( bottom & SIGMA_OLD) |
 							 ( rightBottom & SIGMA_OLD)  ) << SIGMA_OLD_TO_NBH_SHIFT; 
 
-			if ( BIT(current) && (current & NBH) ) {
+			if ( BIT(current) && (current & NBH) && !(current & SIGMA_OLD) ) {
 			    current |= SIGMA_NEW;
 				blockVote = 1;
 
@@ -347,7 +347,7 @@ void KERNEL run(read_only image2d_t channel) {
 							( left & SIGMA_NEW) | 
 							( leftBottom & SIGMA_NEW) ) << NBH_BITPOS; 
 
-				if (  BIT(current) && !(current & SIGMA_NEW) && (current & NBH)) {
+				if (  BIT(current) && !(current & SIGMA_OLD) && (current & NBH)  && !(current & SIGMA_NEW)) {
 					current |= SIGMA_NEW;
 					blockVote = 1;
 
