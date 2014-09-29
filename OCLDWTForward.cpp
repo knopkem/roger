@@ -67,9 +67,9 @@ template<typename T> void OCLDWTForward<T>::doRun(bool lossy, size_t w, size_t h
 		return;
 	// set dwt + quantization kernel arguments
 	if (lossy && !memoryManager->isOnlyDwtOut() ) {
-		float quantLL =  getStep(levels,level, 0, memoryManager->getPrecision());
-		float quantLH =  getStep(levels,level, 1, memoryManager->getPrecision());
-		float quantHH =  getStep(levels,level, 3, memoryManager->getPrecision());
+		float quantLL =  1.0f/getStep(levels,level, 0, memoryManager->getPrecision());
+		float quantLH =  1.0f/getStep(levels,level, 1, memoryManager->getPrecision());
+		float quantHH =  1.0f/getStep(levels,level, 3, memoryManager->getPrecision());
 		if (setKernelArgsQuant(targetKernel, quantLL, quantLH, quantHH) 
 				!= DeviceSuccess)
 			return;
@@ -113,6 +113,7 @@ template<typename T> int OCLDWTForward<T>::int_floorlog2(int a) {
      
 
 template<typename T> float OCLDWTForward<T>::getStep(size_t numresolutions, size_t level, size_t orient, size_t prec) {
+	
 	int gain = (orient == 0) ? 0 : (((orient == 1) || (orient == 2)) ? 1 : 2);
 	int numbps = prec + gain;
 	float norm = norms[orient][level];
@@ -121,8 +122,11 @@ template<typename T> float OCLDWTForward<T>::getStep(size_t numresolutions, size
 	int n = 11 - int_floorlog2(base_stepsize);
 	int mant = (n < 0 ? base_stepsize >> -n : base_stepsize << n) & 0x7ff;
 	int expn = numbps - p;
-	//return (1.0 + mant / 2048.0) * pow(2.0, (numbps - expn));  
-	return 0.5f;
+	
+	expn=8.5f;
+	mant=8.0f;
+	return (1.0 + mant/2048.0f) * pow(2, numbps - expn);
+
 }
 
      
