@@ -182,7 +182,7 @@ void KERNEL run(read_only image2d_t channel) {
 
 	int bp = msbScratch[0] + PIXEL_START_BITPOS;
 
-	// set sigma_new for strip column (sigma_old is zero)
+	// i) set sigma_new for strip column (sigma_old is zero)
 	LOCAL int* statePtr = state + startIndex;
 	for (int i = 0; i < 4; ++i) {
 		int current = statePtr[0];
@@ -193,7 +193,7 @@ void KERNEL run(read_only image2d_t channel) {
 	}
 	localMemoryFence();
 		
-	// set rlc nbh for strip column
+	// ii) set rlc nbh for strip column
 	statePtr = state + startIndex;
 	int current = statePtr[0];
 	int top = statePtr[TOP];
@@ -202,37 +202,26 @@ void KERNEL run(read_only image2d_t channel) {
 	int leftBottom = statePtr[LEFT_BOTTOM];
 
 	int rlcCount = 0;               
-	bool doRLC = false;
 
+	current |=  (BIT(top) | BIT(leftTop) | BIT(left) | BIT(leftBottom)) << NBH_BITPOS;
+	statePtr[0] = current;
 
-
-
-	for (int i = 0; i < 4; ++i) {
-		current |=  (BIT(top) | BIT(leftTop) | BIT(left) | BIT(leftBottom)) << NBH_BITPOS;
-		statePtr[0] = current;
-
-
-		// toggle doRLC flag
-		int currentBit = BIT(current);
-		if (i == 0 && !(current & NBH) && !currentBit ) {
-			doRLC = true;
-		} else if (doRLC && ( (current & NBH) || currentBit) ) {
-			doRLC = false;
-		}
+	// set doRLC flag
+	bool doRLC = !(current & NBH) && !BIT(current);
 			  
-		if (doRLC) {
-      
-			rlcCount++;
-		} else {
-		   if (current & NBH) {
-				//ZC
-		   }
-		   if (currentBit) {
-		       //SC
-
-		   }
-
+	if (doRLC) {
+		rlcCount++;
+	} else {
+		if (current & NBH) {
+			//ZC
 		}
+		if (BIT(current)) {
+		    //SC
+		}
+	}
+
+
+	for (int i = 0; i < 3; ++i) {
 
 		statePtr += STATE_BUFFER_STRIDE;
 		top = current;
@@ -240,6 +229,22 @@ void KERNEL run(read_only image2d_t channel) {
 		leftTop = left;
 		left = leftBottom;
 		leftBottom = statePtr[LEFT_BOTTOM];
+
+		// toggle doRLC flag
+		doRLC = doRLC && !(current & NBH) && !BIT(current);
+		if (doRLC) {
+      
+			rlcCount++;
+		} else {
+		   if (current & NBH) {
+				//ZC
+		   }
+		   if (BIT(current)) {
+		       //SC
+		   }
+		}
+
+
 	}
 	localMemoryFence();
 
@@ -332,8 +337,6 @@ void KERNEL run(read_only image2d_t channel) {
 			bottom = statePtr[BOTTOM];
 			rightBottom = statePtr[RIGHT_BOTTOM];
 
-
-
 			current |= ((leftTop & SIGMA_OLD) |
 							 ( top & SIGMA_OLD) |
 							 ( rightTop &  SIGMA_OLD) |
@@ -354,7 +357,10 @@ void KERNEL run(read_only image2d_t channel) {
 
 		
 		// iii) block vote on sigma new
-		while (blockVote) {
+#ifdef AMD
+		while (blockVote) 
+#endif
+		{
 		    blockVote = 0;
 			localMemoryFence();
 
