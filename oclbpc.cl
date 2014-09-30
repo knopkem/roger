@@ -71,20 +71,30 @@ stripe are scanned from left to right.
 #define PIXEL_END_BITPOS   0x18 
 #define SIGN_BITPOS        0x19 
 
-#define SIGMA_NEW			 0x1		  //position 0
-#define NOT_SIGMA_NEW        0xFFFFFFFE   // ~SIGMA_NEW
-#define SIGMA_OLD			 0x10		  //position  1
-#define NBH					 0x20		  //position  2
-#define RLC					 0x80		  //position  4
-#define RLC_D_POSITION		 0x380        //positions 6-9
-#define PIXEL				 0x7FFF0000   //positions 10-24
-#define SIGN				 0x2000000    //position  25
+// bit flags
+#define SIGMA_NEW_F			 0x1		  //position 0
+#define NOT_SIGMA_NEW_F      0xFFFFFFFE   // ~SIGMA_NEW
+#define SIGMA_OLD_F			 0x10		  //position  1
+#define NBH_F				 0x20		  //position  2
+#define RLC_F				 0x80		  //position  4
+#define RLC_D_POSITION_F	 0x380        //positions 6-9
+#define PIXEL_F				 0x7FFF0000   //positions 10-24
+#define SIGN_F				 0x2000000    //position  25
 
 #define INPUT_TO_SIGN_SHIFT 10
 
 CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
 
 #define BIT(pix) (((pix)>>(bp))&1)
+#define NBH(pix) ((pix) & NBH_F)
+#define SIGMA_OLD(pix) ((pix) & SIGMA_OLD_F)
+#define SIGMA_NEW(pix) ((pix) & SIGMA_NEW_F)
+#define SIGN(pix) ((pix) & SIGN_F)
+
+#define SET_SIGMA_NEW(pix) ( (pix) |= SIGMA_NEW_F )
+#define CLEAR_SIGMA_NEW(pix) ( (pix) &= NOT_SIGMA_NEW_F )
+
+#define AMD
 
 /**
 
@@ -108,16 +118,20 @@ void KERNEL run(read_only image2d_t channel) {
 
 	int maxSigBit;
 	if (getLocalId(1) == 0) {
+
 		int maxVal = 0;
 		state[getLocalId(0)] = 0;   //top boundary
 		LOCAL int* statePtr = state + (BOUNDARY + getLocalId(0));
 		int2 posIn = (int2)(getGlobalId(0),  (getGlobalId(1) >> 3)*CODEBLOCKY);
+
 		for (int i = 0; i < CODEBLOCKY; ++i) {
 			int pixel = read_imagei(channel, sampler, posIn).x;
-			pixel = (abs(pixel) << PIXEL_START_BITPOS) | ((pixel << INPUT_TO_SIGN_SHIFT) & SIGN);
-			posIn.y++;
-			maxVal = max(maxVal, (pixel>> PIXEL_START_BITPOS)&0x7FFF);
+			int absPixel = abs(pixel);
+			maxVal = max(maxVal, absPixel);
+			pixel = (absPixel << PIXEL_START_BITPOS) | SIGN((pixel << INPUT_TO_SIGN_SHIFT));
 			statePtr[0] = pixel;
+
+			posIn.y++;
 			statePtr += STATE_BUFFER_STRIDE;	
 		}
 		state[ getLocalId(0) + STATE_BOTTOM_BOUNDARY_OFFSET] = 0;		//bottom boundary
@@ -126,10 +140,10 @@ void KERNEL run(read_only image2d_t channel) {
 		if (getLocalId(0) == 0 || getLocalId(0) == CODEBLOCKX-1) {
 			int delta = -1 + (getLocalId(0)/(CODEBLOCKX-1))*2; // -1 or +1
 			statePtr = state + BOUNDARY + getLocalId(0) + delta;
-			 for (int i = 0; i < CODEBLOCKY+ BOUNDARY_X2; ++i) {
+			for (int i = 0; i < CODEBLOCKY+ BOUNDARY_X2; ++i) {
 				 *statePtr = 0;
 				 statePtr += STATE_BUFFER_STRIDE;
-			 }
+			}
 		}
 
 		// calculate column-msb
@@ -195,11 +209,11 @@ void KERNEL run(read_only image2d_t channel) {
 		
 	// ii) set rlc nbh for strip column
 	statePtr = state + startIndex;
-	int current = statePtr[0];
-	int top = statePtr[TOP];
-	int leftTop = statePtr[LEFT_TOP];
-	int left = statePtr[LEFT];
-	int leftBottom = statePtr[LEFT_BOTTOM];
+	int current			= statePtr[0];
+	int top				= statePtr[TOP];
+	int leftTop			= statePtr[LEFT_TOP];
+	int left			= statePtr[LEFT];
+	int leftBottom		= statePtr[LEFT_BOTTOM];
 
 	int rlcCount = 0;               
 
@@ -207,12 +221,12 @@ void KERNEL run(read_only image2d_t channel) {
 	statePtr[0] = current;
 
 	// set doRLC flag
-	bool doRLC = !(current & NBH) && !BIT(current);
+	bool doRLC = !NBH(current) && !BIT(current);
 			  
 	if (doRLC) {
 		rlcCount++;
 	} else {
-		if (current & NBH) {
+		if ( NBH(current) ) {
 			//ZC
 		}
 		if (BIT(current)) {
@@ -221,7 +235,7 @@ void KERNEL run(read_only image2d_t channel) {
 	}
 
 
-	for (int i = 0; i < 3; ++i) {
+	for (int i = 0; i < 2; ++i) {
 
 		statePtr += STATE_BUFFER_STRIDE;
 		top = current;
@@ -229,23 +243,51 @@ void KERNEL run(read_only image2d_t channel) {
 		leftTop = left;
 		left = leftBottom;
 		leftBottom = statePtr[LEFT_BOTTOM];
+		current |=  (BIT(top) | BIT(leftTop) | BIT(left) | BIT(leftBottom)) << NBH_BITPOS;
+		statePtr[0] = current;
 
 		// toggle doRLC flag
-		doRLC = doRLC && !(current & NBH) && !BIT(current);
+		doRLC = doRLC && !NBH(current) && !BIT(current);
 		if (doRLC) {
       
 			rlcCount++;
 		} else {
-		   if (current & NBH) {
+		   if (NBH(current)) {
 				//ZC
 		   }
 		   if (BIT(current)) {
 		       //SC
 		   }
 		}
-
-
 	}
+
+	// last pixel in strip column -
+	// ignore leftBottom pixel, because it is in the next
+	// stripe and it hasn't been processed yet
+	statePtr += STATE_BUFFER_STRIDE;
+	top = current;
+	current = statePtr[0];
+	leftTop = left;
+	left = leftBottom;
+	leftBottom = statePtr[LEFT_BOTTOM];
+	current |=  (BIT(top) | BIT(leftTop) | BIT(left)) << NBH_BITPOS;
+	statePtr[0] = current;
+
+	// toggle doRLC flag
+	doRLC = doRLC && !NBH(current) && !BIT(current);
+	if (doRLC) {
+      
+		rlcCount++;
+	} else {
+		if (NBH(current)) {
+			//ZC
+		}
+		if (BIT(current)) {
+		    //SC
+		}
+	}
+
+
 	localMemoryFence();
 
 	
@@ -259,36 +301,14 @@ void KERNEL run(read_only image2d_t channel) {
 
 		/////////////////////////////
 		// 4. pre-process bit plane
-		
-		//Algorithm 15 Bit-plane Preprocessing
-		//1: //First step
-		//2: set sigma_old |= sigma_new
-		//3: set nbh |=  old_sigma from neighbouring positions
-		//4: if sigma_old = 0 AND nbh != 0 AND bit value = 1 then
-		//5: set sigma_new := 1
-		//6: end if
-		//7: if there is some sigma_new = 1 then
-		//8: blockVote := true
-		//9: end if
-		//10: //Second step
-		//11: while blockVote = true do
-		//12: set blockVote := false //reset the voting variable
-		//13: set nbh :=  sigma_new from the four previous positions
-		//14: if sigma_old = 0 AND nbh != 0 AND bit value = 1 then
-		//15: set sigma_new = 1
-		//16: end if
-		//17: if there is some sigma_new = 1 found in this iteration then
-		//18: set blockVote := true
-		//19: end if
-		//20: end while
-		
 
 		// i) migrate sigma_new to sigma_old, and clear sigma new bit
 		statePtr = state + startIndex;
 		for (int i = 0; i < 4; ++i) {
 		    int current = *statePtr;
-			current |= ((current) & SIGMA_NEW) << SIGMA_OLD_BITPOS;  
-			current &= NOT_SIGMA_NEW;  // clear sigma new 
+			current |=  SIGMA_NEW(current) << SIGMA_OLD_BITPOS;  
+			CLEAR_SIGMA_NEW(current); 
+
 			*statePtr = current;
 			statePtr += STATE_BUFFER_STRIDE;	
 
@@ -309,45 +329,50 @@ void KERNEL run(read_only image2d_t channel) {
 		int bottom = statePtr[BOTTOM];
 		int rightBottom = statePtr[RIGHT_BOTTOM];
 
-		current |= ((leftTop & SIGMA_OLD) |
-							( top & SIGMA_OLD) |
-							( rightTop &  SIGMA_OLD) |
-							( left & SIGMA_OLD) | 
-							( right & SIGMA_OLD) | 
-							( leftBottom & SIGMA_OLD) |
-							( bottom & SIGMA_OLD) |
-							( rightBottom & SIGMA_OLD)  ) << SIGMA_OLD_TO_NBH_SHIFT; 
+		current |=  (   SIGMA_OLD(leftTop) |
+						SIGMA_OLD( top) |
+						SIGMA_OLD( rightTop) |
+						SIGMA_OLD( left) | 
+						SIGMA_OLD( right) | 
+						SIGMA_OLD( leftBottom) |
+						SIGMA_OLD( bottom) |
+						SIGMA_OLD( rightBottom)  ) << SIGMA_OLD_TO_NBH_SHIFT; 
 
-		if ( BIT(current) && (current & NBH) && !(current & SIGMA_OLD) ) {
-			current |= SIGMA_NEW;
+		if ( BIT(current) && 
+				NBH(current) && 
+					!SIGMA_OLD(current) ) {
+			SET_SIGMA_NEW(current);
 			blockVote = 1;
 
 		}
 		*statePtr = current;
 
 		for (int i = 0; i < 3; ++i) {
-			statePtr += STATE_BUFFER_STRIDE;	
-			top = current;
-			leftTop = left;
-			rightTop = right;
-			left = leftBottom;
-			current = statePtr[0];
-			right = rightBottom;
-			leftBottom = statePtr[LEFT_BOTTOM];
-			bottom = statePtr[BOTTOM];
-			rightBottom = statePtr[RIGHT_BOTTOM];
+			statePtr += STATE_BUFFER_STRIDE;
+				
+			top			 = current;
+			leftTop		 = left;
+			rightTop	 = right;
+			left		 = leftBottom;
+			current		 = statePtr[0];
+			right		 = rightBottom;
+			leftBottom   = statePtr[LEFT_BOTTOM];
+			bottom		 = statePtr[BOTTOM];
+			rightBottom  = statePtr[RIGHT_BOTTOM];
 
-			current |= ((leftTop & SIGMA_OLD) |
-							 ( top & SIGMA_OLD) |
-							 ( rightTop &  SIGMA_OLD) |
-							 ( left & SIGMA_OLD) | 
-							 ( right & SIGMA_OLD) | 
-							 ( leftBottom & SIGMA_OLD) |
-							 ( bottom & SIGMA_OLD) |
-							 ( rightBottom & SIGMA_OLD)  ) << SIGMA_OLD_TO_NBH_SHIFT; 
+			current |=	   ( SIGMA_OLD(leftTop) |
+							 SIGMA_OLD( top) |
+							 SIGMA_OLD( rightTop) |
+							 SIGMA_OLD( left) | 
+							 SIGMA_OLD( right) | 
+							 SIGMA_OLD( leftBottom) |
+							 SIGMA_OLD( bottom) |
+							 SIGMA_OLD( rightBottom)  ) << SIGMA_OLD_TO_NBH_SHIFT; 
 
-			if ( BIT(current) && (current & NBH) && !(current & SIGMA_OLD) ) {
-			    current |= SIGMA_NEW;
+			if ( BIT(current) &&
+					 NBH(current) &&
+						 !SIGMA_OLD(current) ) {
+			    SET_SIGMA_NEW(current);
 				blockVote = 1;
 			}
 			*statePtr = current;
@@ -366,176 +391,141 @@ void KERNEL run(read_only image2d_t channel) {
 
 			statePtr = state + startIndex;
 
-			int top = statePtr[TOP];
-			int leftTop = statePtr[LEFT_TOP];
-			int left = statePtr[LEFT];
-			int current = statePtr[0];
-			int leftBottom = statePtr[LEFT_BOTTOM];
+			int top			= statePtr[TOP];
+			int leftTop		= statePtr[LEFT_TOP];
+			int left		= statePtr[LEFT];
+			int current		= statePtr[0];
+			int leftBottom  = statePtr[LEFT_BOTTOM];
 
+			// first three pixels in strip column
 			for (int i = 0; i < 3; ++i) {
 
-				current  |= ((leftTop & SIGMA_NEW) |
-							( top & SIGMA_NEW) |
-							( left & SIGMA_NEW) | 
-							( leftBottom & SIGMA_NEW) ) << NBH_BITPOS; 
+				current  |= ( SIGMA_NEW(leftTop) |
+							  SIGMA_NEW( top) |
+							  SIGMA_NEW( left) | 
+							  SIGMA_NEW( leftBottom) ) << NBH_BITPOS; 
 
-				if (  BIT(current) && !(current & SIGMA_OLD) &&  (current & NBH)  && !(current & SIGMA_NEW)) {
-					current |= SIGMA_NEW;
+				if (  BIT(current) && 
+				          !SIGMA_OLD(current) && 
+						      NBH(current)  && 
+							     !SIGMA_NEW(current)) {
+					SET_SIGMA_NEW(current);
 					blockVote = 1;
 
 				}
 				statePtr[0] = current;
 				statePtr += STATE_BUFFER_STRIDE;
-				top = current;
-				current = statePtr[0];
-				leftTop = left;
-				left = leftBottom;
-				leftBottom = statePtr[LEFT_BOTTOM];
+
+				top			= current;
+				current		= statePtr[0];
+				leftTop		= left;
+				left		= leftBottom;
+				leftBottom  = statePtr[LEFT_BOTTOM];
 			}
-			current |= ((leftTop & SIGMA_NEW) |
-						( top & SIGMA_NEW) |
-						( left & SIGMA_NEW) ) << NBH_BITPOS; // ignore leftBottom pixel, because it is in the next
-						                                     // stripe and it hasn't been processed yet
 
-			if (  BIT(current) && !(current & SIGMA_OLD) &&  (current & NBH)  && !(current & SIGMA_NEW)) {
-				current |= SIGMA_NEW;
+			// last pixel in strip column -
+			// ignore leftBottom pixel, because it is in the next
+			// stripe and it hasn't been processed yet
+			current |= ( SIGMA_NEW(leftTop) |
+						 SIGMA_NEW( top) |
+						 SIGMA_NEW( left) ) << NBH_BITPOS;
+			if (  BIT(current) && 
+			        !SIGMA_OLD(current) && 
+					    NBH(current)  &&
+						    !SIGMA_NEW(current)) {
+				SET_SIGMA_NEW(current);
 				blockVote = 1;
-
 			}
 			statePtr[0] = current;
+
 			localMemoryFence();
 
 		}
 		
 		/////////////////////////
-		// 5. Significance 
+		// 5. bit plane processing 
 		statePtr = state + startIndex;
 
 		top = statePtr[TOP];
-		leftTop = statePtr[LEFT_TOP];
-		rightTop = statePtr[RIGHT_TOP];
-		left = statePtr[LEFT];
-		current = statePtr[0];
-		right = statePtr[RIGHT];
-		leftBottom = statePtr[LEFT_BOTTOM];
-		bottom = statePtr[BOTTOM];
-		rightBottom = statePtr[RIGHT_BOTTOM];
-		for (int i = 0; i < 4; ++i) {
+		leftTop			= statePtr[LEFT_TOP];
+		rightTop		= statePtr[RIGHT_TOP];
+		left			= statePtr[LEFT];
+		current			= statePtr[0];
+		right			= statePtr[RIGHT];
+		leftBottom		= statePtr[LEFT_BOTTOM];
+		bottom			= statePtr[BOTTOM];
+		rightBottom		= statePtr[RIGHT_BOTTOM];
 
-			int nbh = ((leftTop & SIGMA_OLD) |
-							 ( top & SIGMA_OLD) |
-							 ( rightTop &  SIGMA_OLD) |
-							 ( left & SIGMA_OLD) | 
-							 ( right & SIGMA_OLD) | 
-							 ( leftBottom & SIGMA_OLD) |
-							 ( bottom & SIGMA_OLD) |
-							 ( rightBottom & SIGMA_OLD)  ) << NBH_BITPOS; 
+		if (SIGMA_OLD(current)) {
+			// MRC
+		} else {
+			int nbh = ( NBH(leftTop) |
+						NBH( top) |
+						NBH( rightTop) |
+						NBH( left) | 
+						NBH( right) | 
+						NBH( leftBottom) |
+						NBH( bottom) |
+						NBH( rightBottom)  ) ; 
 
-			current |= nbh;
-			if ( !(current & NBH) && nbh && BIT(current) ) {
-			    current |= SIGMA_NEW;
+			if (!nbh) {
+				if ( !SIGMA_NEW(current) ) {
 
+
+
+					//RLC
+				}
 			}
-			*statePtr = current;
-			statePtr += STATE_BUFFER_STRIDE;	
-			top = current;
-			leftTop = left;
-			rightTop = right;
-			left = leftBottom;
-			current = statePtr[0];
-			right = rightBottom;
-			leftBottom = statePtr[LEFT_BOTTOM];
-			bottom = statePtr[BOTTOM];
-			rightBottom = statePtr[RIGHT_BOTTOM];
-		}
-		localMemoryFence();
+			else  {
 
-		//////////////////////////
-		// 6. Magnitude Refinement
-		statePtr = state + startIndex;
+				 // ZC
 
-		top = statePtr[TOP];
-		leftTop = statePtr[LEFT_TOP];
-		rightTop = statePtr[RIGHT_TOP];
-		left = statePtr[LEFT];
-		current = statePtr[0];
-		right = statePtr[RIGHT];
-		leftBottom = statePtr[LEFT_BOTTOM];
-		bottom = statePtr[BOTTOM];
-		rightBottom = statePtr[RIGHT_BOTTOM];
-		for (int i = 0; i < 4; ++i) {
-
-			int nbh = ((leftTop & SIGMA_OLD) |
-							 ( top & SIGMA_OLD) |
-							 ( rightTop &  SIGMA_OLD) |
-							 ( left & SIGMA_OLD) | 
-							 ( right & SIGMA_OLD) | 
-							 ( leftBottom & SIGMA_OLD) |
-							 ( bottom & SIGMA_OLD) |
-							 ( rightBottom & SIGMA_OLD)  ) << NBH_BITPOS; 
-
-			current |= nbh;
-			if ( !(current & NBH) && nbh && BIT(current) ) {
-			    current |= SIGMA_NEW;
-
+				 if (BIT(current)) {
+				     //SC
+				  }
 			}
-			*statePtr = current;
-			statePtr += STATE_BUFFER_STRIDE;	
-			top = current;
-			leftTop = left;
-			rightTop = right;
-			left = leftBottom;
-			current = statePtr[0];
-			right = rightBottom;
-			leftBottom = statePtr[LEFT_BOTTOM];
-			bottom = statePtr[BOTTOM];
-			rightBottom = statePtr[RIGHT_BOTTOM];
 		}
-		localMemoryFence();
 
-		///////////////////////
-		// 7. cleanup
-		statePtr = state + startIndex;
+		for (int i = 0; i < 3; ++i) {
+			statePtr += STATE_BUFFER_STRIDE;	
 
-		top = statePtr[TOP];
-		leftTop = statePtr[LEFT_TOP];
-		rightTop = statePtr[RIGHT_TOP];
-		left = statePtr[LEFT];
-		current = statePtr[0];
-		right = statePtr[RIGHT];
-		leftBottom = statePtr[LEFT_BOTTOM];
-		bottom = statePtr[BOTTOM];
-		rightBottom = statePtr[RIGHT_BOTTOM];
-		for (int i = 0; i < 4; ++i) {
+			top			= current;
+			leftTop		= left;
+			rightTop	= right;
+			left		= leftBottom;
+			current		= statePtr[0];
+			right		= rightBottom;
+			leftBottom  = statePtr[LEFT_BOTTOM];
+			bottom		= statePtr[BOTTOM];
+			rightBottom = statePtr[RIGHT_BOTTOM];
 
-			int nbh = ((leftTop & SIGMA_OLD) |
-							 ( top & SIGMA_OLD) |
-							 ( rightTop &  SIGMA_OLD) |
-							 ( left & SIGMA_OLD) | 
-							 ( right & SIGMA_OLD) | 
-							 ( leftBottom & SIGMA_OLD) |
-							 ( bottom & SIGMA_OLD) |
-							 ( rightBottom & SIGMA_OLD)  ) << NBH_BITPOS; 
+			if (SIGMA_OLD(current)) {
+				// MRC
+			} else {
+				int nbh = ( NBH(leftTop) |
+							NBH( top) |
+							NBH( rightTop) |
+							NBH( left) | 
+							NBH( right) | 
+							NBH( leftBottom) |
+							NBH( bottom) |
+							NBH( rightBottom)  ) ; 
 
-			current |= nbh;
-			if ( !(current & NBH) && nbh && BIT(current) ) {
-			    current |= SIGMA_NEW;
-
+				if (!nbh) {
+					if ( !SIGMA_NEW(current) ) {
+						//RLC
+					}
+				}
+				else  {
+					 // ZC
+					 if (BIT(current)) {
+						 //SC
+					  }
+				}
 			}
-			*statePtr = current;
-			statePtr += STATE_BUFFER_STRIDE;	
-			top = current;
-			leftTop = left;
-			rightTop = right;
-			left = leftBottom;
-			current = statePtr[0];
-			right = rightBottom;
-			leftBottom = statePtr[LEFT_BOTTOM];
-			bottom = statePtr[BOTTOM];
-			rightBottom = statePtr[RIGHT_BOTTOM];
 		}
-		localMemoryFence();
 
+		localMemoryFence();
 		bp--;
 	}
 }
