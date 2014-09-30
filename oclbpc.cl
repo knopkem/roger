@@ -111,7 +111,7 @@ void KERNEL run(read_only image2d_t channel) {
 		int maxVal = 0;
 		state[getLocalId(0)] = 0;   //top boundary
 		LOCAL int* statePtr = state + (BOUNDARY + getLocalId(0));
-		int2 posIn = (int2)(getGlobalId(0),  (getGlobalId(1)/8)*CODEBLOCKY);
+		int2 posIn = (int2)(getGlobalId(0),  (getGlobalId(1) >> 3)*CODEBLOCKY);
 		for (int i = 0; i < CODEBLOCKY; ++i) {
 			int pixel = read_imagei(channel, sampler, posIn).x;
 			pixel = (abs(pixel) << PIXEL_START_BITPOS) | ((pixel << INPUT_TO_SIGN_SHIFT) & SIGN);
@@ -139,7 +139,7 @@ void KERNEL run(read_only image2d_t channel) {
 	localMemoryFence();
 
 	//calculate global msb
-	if (getLocalId(0) + getLocalId(1) == 0) {
+	if (!getLocalId(0) && !getLocalId(1) ) {
 		int4 mx = (int4)(maxSigBit);
 
 		LOCAL int* scratchPtr = msbScratch;
@@ -203,18 +203,20 @@ void KERNEL run(read_only image2d_t channel) {
 
 	int rlcCount = 0;               
 	bool doRLC = false;
+
+
+
+
 	for (int i = 0; i < 4; ++i) {
-		current = statePtr[0];
-		int nbh = (BIT(top) | BIT(leftTop) | BIT(left) | BIT(leftBottom)) << NBH_BITPOS ;
-		current |= nbh;
+		current |=  (BIT(top) | BIT(leftTop) | BIT(left) | BIT(leftBottom)) << NBH_BITPOS;
 		statePtr[0] = current;
 
 
 		// toggle doRLC flag
 		int currentBit = BIT(current);
-		if (i == 0 && !nbh && !currentBit ) {
+		if (i == 0 && !(current & NBH) && !currentBit ) {
 			doRLC = true;
-		} else if (doRLC && (nbh || currentBit) ) {
+		} else if (doRLC && ( (current & NBH) || currentBit) ) {
 			doRLC = false;
 		}
 			  
@@ -222,7 +224,7 @@ void KERNEL run(read_only image2d_t channel) {
       
 			rlcCount++;
 		} else {
-		   if (nbh) {
+		   if (current & NBH) {
 				//ZC
 		   }
 		   if (currentBit) {
@@ -301,7 +303,36 @@ void KERNEL run(read_only image2d_t channel) {
 		int leftBottom = statePtr[LEFT_BOTTOM];
 		int bottom = statePtr[BOTTOM];
 		int rightBottom = statePtr[RIGHT_BOTTOM];
-		for (int i = 0; i < 4; ++i) {
+
+		current |= ((leftTop & SIGMA_OLD) |
+							( top & SIGMA_OLD) |
+							( rightTop &  SIGMA_OLD) |
+							( left & SIGMA_OLD) | 
+							( right & SIGMA_OLD) | 
+							( leftBottom & SIGMA_OLD) |
+							( bottom & SIGMA_OLD) |
+							( rightBottom & SIGMA_OLD)  ) << SIGMA_OLD_TO_NBH_SHIFT; 
+
+		if ( BIT(current) && (current & NBH) && !(current & SIGMA_OLD) ) {
+			current |= SIGMA_NEW;
+			blockVote = 1;
+
+		}
+		*statePtr = current;
+
+		for (int i = 0; i < 3; ++i) {
+			statePtr += STATE_BUFFER_STRIDE;	
+			top = current;
+			leftTop = left;
+			rightTop = right;
+			left = leftBottom;
+			current = statePtr[0];
+			right = rightBottom;
+			leftBottom = statePtr[LEFT_BOTTOM];
+			bottom = statePtr[BOTTOM];
+			rightBottom = statePtr[RIGHT_BOTTOM];
+
+
 
 			current |= ((leftTop & SIGMA_OLD) |
 							 ( top & SIGMA_OLD) |
@@ -315,19 +346,9 @@ void KERNEL run(read_only image2d_t channel) {
 			if ( BIT(current) && (current & NBH) && !(current & SIGMA_OLD) ) {
 			    current |= SIGMA_NEW;
 				blockVote = 1;
-
 			}
 			*statePtr = current;
-			statePtr += STATE_BUFFER_STRIDE;	
-			top = current;
-			leftTop = left;
-			rightTop = right;
-			left = leftBottom;
-			current = statePtr[0];
-			right = rightBottom;
-			leftBottom = statePtr[LEFT_BOTTOM];
-			bottom = statePtr[BOTTOM];
-			rightBottom = statePtr[RIGHT_BOTTOM];
+
 		}
 		localMemoryFence();
 
@@ -345,14 +366,14 @@ void KERNEL run(read_only image2d_t channel) {
 			int current = statePtr[0];
 			int leftBottom = statePtr[LEFT_BOTTOM];
 
-			for (int i = 0; i < 4; ++i) {
+			for (int i = 0; i < 3; ++i) {
 
-				current |= ((leftTop & SIGMA_NEW) |
+				current  |= ((leftTop & SIGMA_NEW) |
 							( top & SIGMA_NEW) |
 							( left & SIGMA_NEW) | 
 							( leftBottom & SIGMA_NEW) ) << NBH_BITPOS; 
 
-				if (  BIT(current) && !(current & SIGMA_OLD) && (current & NBH)  && !(current & SIGMA_NEW)) {
+				if (  BIT(current) && !(current & SIGMA_OLD) &&  (current & NBH)  && !(current & SIGMA_NEW)) {
 					current |= SIGMA_NEW;
 					blockVote = 1;
 
@@ -365,6 +386,17 @@ void KERNEL run(read_only image2d_t channel) {
 				left = leftBottom;
 				leftBottom = statePtr[LEFT_BOTTOM];
 			}
+			current |= ((leftTop & SIGMA_NEW) |
+						( top & SIGMA_NEW) |
+						( left & SIGMA_NEW) ) << NBH_BITPOS; // ignore leftBottom pixel, because it is in the next
+						                                     // stripe and it hasn't been processed yet
+
+			if (  BIT(current) && !(current & SIGMA_OLD) &&  (current & NBH)  && !(current & SIGMA_NEW)) {
+				current |= SIGMA_NEW;
+				blockVote = 1;
+
+			}
+			statePtr[0] = current;
 			localMemoryFence();
 
 		}
