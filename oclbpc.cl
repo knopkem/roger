@@ -73,13 +73,15 @@ stripe are scanned from left to right.
 
 // bit flags
 #define SIGMA_NEW_F			 0x1		  //position 0
-#define NOT_SIGMA_NEW_F      0xFFFFFFFE   // ~SIGMA_NEW
 #define SIGMA_OLD_F			 0x10		  //position  1
 #define NBH_F				 0x20		  //position  2
 #define RLC_F				 0x80		  //position  4
 #define RLC_D_POSITION_F	 0x380        //positions 6-9
 #define PIXEL_F				 0x7FFF0000   //positions 10-24
 #define SIGN_F				 0x2000000    //position  25
+
+#define NOT_SIGMA_NEW_F      0xFFFFFFFE   // ~SIGMA_NEW
+#define SIGMA_OLD_AND_NEW_F  0x11
 
 #define INPUT_TO_SIGN_SHIFT 10
 
@@ -89,12 +91,13 @@ CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
 #define NBH(pix) ((pix) & NBH_F)
 #define SIGMA_OLD(pix) ((pix) & SIGMA_OLD_F)
 #define SIGMA_NEW(pix) ((pix) & SIGMA_NEW_F)
+#define SIGMA_OLD_AND_NEW(pix) ((pix) & SIGMA_OLD_AND_NEW_F)
 #define SIGN(pix) ((pix) & SIGN_F)
 
 #define SET_SIGMA_NEW(pix) ( (pix) |= SIGMA_NEW_F )
 #define CLEAR_SIGMA_NEW(pix) ( (pix) &= NOT_SIGMA_NEW_F )
 
-#define AMD
+//#define AMD
 
 /**
 
@@ -438,14 +441,14 @@ void KERNEL run(read_only image2d_t channel) {
 		if (SIGMA_OLD(current)) {
 			// MRC
 		} else {
-			int nbh = ( NBH(leftTop) |
-						NBH( top) |
-						NBH( rightTop) |
-						NBH( left) | 
-						NBH( right) | 
-						NBH( leftBottom) |
-						NBH( bottom) |
-						NBH( rightBottom)  ) ; 
+			int nbh = ( SIGMA_OLD_AND_NEW(leftTop) |
+						SIGMA_OLD_AND_NEW( top) |
+						SIGMA_OLD_AND_NEW( rightTop) |
+						SIGMA_OLD_AND_NEW( left) | 
+						SIGMA_OLD_AND_NEW( right) | 
+						SIGMA_OLD_AND_NEW( leftBottom) |
+						SIGMA_OLD_AND_NEW( bottom) |
+						SIGMA_OLD_AND_NEW( rightBottom)  ) ; 
 
 			if (!nbh) {
 				if ( !SIGMA_NEW(current) ) {
@@ -476,14 +479,14 @@ void KERNEL run(read_only image2d_t channel) {
 			if (SIGMA_OLD(current)) {
 				// MRC
 			} else {
-				int nbh = ( NBH(leftTop) |
-							NBH( top) |
-							NBH( rightTop) |
-							NBH( left) | 
-							NBH( right) | 
-							NBH( leftBottom) |
-							NBH( bottom) |
-							NBH( rightBottom)  ) ; 
+				int nbh = ( SIGMA_OLD_AND_NEW(leftTop) |
+							SIGMA_OLD_AND_NEW( top) |
+							SIGMA_OLD_AND_NEW( rightTop) |
+							SIGMA_OLD_AND_NEW( left) | 
+							SIGMA_OLD_AND_NEW( right) | 
+							SIGMA_OLD_AND_NEW( leftBottom) |
+							SIGMA_OLD_AND_NEW( bottom) |
+							SIGMA_OLD_AND_NEW( rightBottom)  ) ; 
 
 				if (!nbh) {
 					if ( !SIGMA_NEW(current) ) {
