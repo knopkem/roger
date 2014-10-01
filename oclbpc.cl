@@ -97,7 +97,7 @@ CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
 #define SET_SIGMA_NEW(pix) ( (pix) |= SIGMA_NEW_F )
 #define CLEAR_SIGMA_NEW(pix) ( (pix) &= NOT_SIGMA_NEW_F )
 
-//#define AMD
+#define AMD
 
 /**
 
