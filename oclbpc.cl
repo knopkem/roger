@@ -227,8 +227,6 @@ void KERNEL run(read_only image2d_t channel) {
 		leftBottom	= statePtr[LEFT_BOTTOM];
 
 		nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
-
-		// toggle doRLC flag
 		doRLC = doRLC && !nbh && !BIT(current);
 		if (doRLC) {
       
@@ -454,6 +452,8 @@ void KERNEL run(read_only image2d_t channel) {
 		bottom			= statePtr[BOTTOM];
 		rightBottom		= statePtr[RIGHT_BOTTOM];
 
+		doRLC = false;
+		rlcCount = 0;
 		if (SIGMA_OLD(current)) {
 			// MRC
 		} else {
@@ -466,9 +466,13 @@ void KERNEL run(read_only image2d_t channel) {
 						SIGMA_OLD_AND_NEW( bottom) |
 						SIGMA_OLD_AND_NEW( rightBottom)  ) ; 
 
+						
 			if (!nbh) {
 				if ( !SIGMA_NEW(current) ) {
-					//RLC
+					doRLC = !BIT(current);
+					if (doRLC) {
+					   rlcCount++;
+					}
 				}
 			}
 			else  {
@@ -506,7 +510,12 @@ void KERNEL run(read_only image2d_t channel) {
 
 				if (!nbh) {
 					if ( !SIGMA_NEW(current) ) {
-						//RLC
+						doRLC = doRLC && !BIT(current);
+						if (!doRLC) {
+
+							rlcCount++;
+
+						}
 					}
 				}
 				else  {
