@@ -204,7 +204,7 @@ void KERNEL run(read_only image2d_t channel) {
 	int rlcCount = 0;               
 
 	// first pixel in strip column
-	int nbh =  (SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom)) << NBH_BITPOS;
+	int nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
 	bool doRLC = !nbh && !BIT(current);
 	if (doRLC) {
 		rlcCount++;
@@ -226,7 +226,7 @@ void KERNEL run(read_only image2d_t channel) {
 		left		= leftBottom;
 		leftBottom	= statePtr[LEFT_BOTTOM];
 
-		nbh =  (SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom)) << NBH_BITPOS;
+		nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
 
 		// toggle doRLC flag
 		doRLC = doRLC && !nbh && !BIT(current);
@@ -251,7 +251,7 @@ void KERNEL run(read_only image2d_t channel) {
 	leftTop		= left;
 	left		= leftBottom;
 
-	nbh =  (SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left)) << NBH_BITPOS;
+	nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left);
 
 	doRLC = doRLC && !nbh && !BIT(current);
 	if (doRLC) {
@@ -373,10 +373,10 @@ void KERNEL run(read_only image2d_t channel) {
 			int current		= statePtr[0];
 			int leftBottom  = statePtr[LEFT_BOTTOM];
 
-			current  |= ( SIGMA_NEW(leftTop) |
-				SIGMA_NEW( top) |
-				SIGMA_NEW( left) | 
-				SIGMA_NEW( leftBottom) ) << NBH_BITPOS; 
+			current  |= (   SIGMA_NEW(leftTop) |
+							SIGMA_NEW( top) |
+							SIGMA_NEW( left) | 
+							SIGMA_NEW( leftBottom) ) << NBH_BITPOS; 
 
 			if (  BIT(current) && 
 				        !SIGMA_OLD(current) && 
@@ -398,10 +398,10 @@ void KERNEL run(read_only image2d_t channel) {
 				left		= leftBottom;
 				leftBottom  = statePtr[LEFT_BOTTOM];
 
-				current  |= ( SIGMA_NEW(leftTop) |
-					SIGMA_NEW( top) |
-					SIGMA_NEW( left) | 
-					SIGMA_NEW( leftBottom) ) << NBH_BITPOS; 
+				current  |= (   SIGMA_NEW(leftTop) |
+								SIGMA_NEW( top) |
+								SIGMA_NEW( left) | 
+								SIGMA_NEW( leftBottom) ) << NBH_BITPOS; 
 
 				if (  BIT(current) && 
 				          !SIGMA_OLD(current) && 
