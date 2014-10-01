@@ -114,7 +114,7 @@ void KERNEL run(read_only image2d_t channel) {
 	///////////////////////////////////////////////////////////////////////////////////
 	//1. Calculate MSB
 	
-	LOCAL int msbScratch[CODEBLOCKX]; // between one and 32 - zero value indicates that this code block is identically zero
+	LOCAL int msbScratch[CODEBLOCKX]; // between -1 and 31 - negative one value indicates that this code block is identically zero
 
 	int maxSigBit;
 	if (getLocalId(1) == 0) {
@@ -175,24 +175,8 @@ void KERNEL run(read_only image2d_t channel) {
 
 	int startIndex = (BOUNDARY + getLocalId(0)) + (BOUNDARY + getLocalId(1))*STATE_BUFFER_STRIDE_X4;
 
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////
 	// 2. CUP on MSB
-
-	
-	//Algorithm 13 Clean-up pass on the MSB
-	//1: set sigmanew := bit value
-	//2: set rlcNbh :=  SUM(sigmanew) of preceding column and upper position
-	//3: if rlcNbh = 0 and y-dimension of current position is a multiple of 4
-	//then
-	//4: execute RLC operation
-	//5: end if
-	//6: if rlcNbh = 1 then
-	//7: execute ZC operation
-	//8: end if
-	//9: if sigmanew = 1 then
-	//10: execute SC operation
-	//11: end if	
-	
 
 	int bp = msbScratch[0] + PIXEL_START_BITPOS;
 
@@ -207,7 +191,7 @@ void KERNEL run(read_only image2d_t channel) {
 	}
 	localMemoryFence();
 		
-	// ii) set rlc nbh for strip column
+	// ii) set nbh for strip column, and do CUP
 	statePtr = state + startIndex;
 	int current			= statePtr[0];
 	int top				= statePtr[TOP];
@@ -217,32 +201,30 @@ void KERNEL run(read_only image2d_t channel) {
 
 	int rlcCount = 0;               
 
+	// first pixel in strip column
 	current |=  (BIT(top) | BIT(leftTop) | BIT(left) | BIT(leftBottom)) << NBH_BITPOS;
 	statePtr[0] = current;
-
-	// set doRLC flag
 	bool doRLC = !NBH(current) && !BIT(current);
-			  
 	if (doRLC) {
 		rlcCount++;
 	} else {
-		if ( NBH(current) ) {
-			//ZC
-		}
+		//ZC
+
 		if (BIT(current)) {
 		    //SC
 		}
 	}
 
-
+	// next two pixels in strip column
 	for (int i = 0; i < 2; ++i) {
 
 		statePtr += STATE_BUFFER_STRIDE;
 		top = current;
-		current = statePtr[0];
-		leftTop = left;
-		left = leftBottom;
-		leftBottom = statePtr[LEFT_BOTTOM];
+		current		= statePtr[0];
+		leftTop		= left;
+		left		= leftBottom;
+		leftBottom	= statePtr[LEFT_BOTTOM];
+
 		current |=  (BIT(top) | BIT(leftTop) | BIT(left) | BIT(leftBottom)) << NBH_BITPOS;
 		statePtr[0] = current;
 
@@ -252,9 +234,8 @@ void KERNEL run(read_only image2d_t channel) {
       
 			rlcCount++;
 		} else {
-		   if (NBH(current)) {
-				//ZC
-		   }
+		   //ZC
+
 		   if (BIT(current)) {
 		       //SC
 		   }
@@ -265,28 +246,26 @@ void KERNEL run(read_only image2d_t channel) {
 	// ignore leftBottom pixel, because it is in the next
 	// stripe and it hasn't been processed yet
 	statePtr += STATE_BUFFER_STRIDE;
-	top = current;
-	current = statePtr[0];
-	leftTop = left;
-	left = leftBottom;
-	leftBottom = statePtr[LEFT_BOTTOM];
+	top			= current;
+	current		= statePtr[0];
+	leftTop		= left;
+	left		= leftBottom;
+	leftBottom	= statePtr[LEFT_BOTTOM];
+
 	current |=  (BIT(top) | BIT(leftTop) | BIT(left)) << NBH_BITPOS;
 	statePtr[0] = current;
 
-	// toggle doRLC flag
 	doRLC = doRLC && !NBH(current) && !BIT(current);
 	if (doRLC) {
       
 		rlcCount++;
 	} else {
-		if (NBH(current)) {
-			//ZC
-		}
+		//ZC
+
 		if (BIT(current)) {
 		    //SC
 		}
 	}
-
 
 	localMemoryFence();
 
@@ -319,14 +298,14 @@ void KERNEL run(read_only image2d_t channel) {
 		// ii) update nbh
 		statePtr = state + startIndex;
 
-		int top = statePtr[TOP];
-		int leftTop = statePtr[LEFT_TOP];
-		int rightTop = statePtr[RIGHT_TOP];
-		int left = statePtr[LEFT];
-		int current = statePtr[0];
-		int right = statePtr[RIGHT];
-		int leftBottom = statePtr[LEFT_BOTTOM];
-		int bottom = statePtr[BOTTOM];
+		int top			= statePtr[TOP];
+		int leftTop		= statePtr[LEFT_TOP];
+		int rightTop	= statePtr[RIGHT_TOP];
+		int left		= statePtr[LEFT];
+		int current		= statePtr[0];
+		int right		= statePtr[RIGHT];
+		int leftBottom  = statePtr[LEFT_BOTTOM];
+		int bottom		= statePtr[BOTTOM];
 		int rightBottom = statePtr[RIGHT_BOTTOM];
 
 		current |=  (   SIGMA_OLD(leftTop) |
@@ -470,19 +449,14 @@ void KERNEL run(read_only image2d_t channel) {
 
 			if (!nbh) {
 				if ( !SIGMA_NEW(current) ) {
-
-
-
 					//RLC
 				}
 			}
 			else  {
-
-				 // ZC
-
-				 if (BIT(current)) {
-				     //SC
-				  }
+				// ZC
+				if (BIT(current)) {
+				    //SC
+				}
 			}
 		}
 
@@ -517,10 +491,10 @@ void KERNEL run(read_only image2d_t channel) {
 					}
 				}
 				else  {
-					 // ZC
-					 if (BIT(current)) {
-						 //SC
-					  }
+					// ZC
+					if (BIT(current)) {
+						//SC
+					}
 				}
 			}
 		}
@@ -529,6 +503,3 @@ void KERNEL run(read_only image2d_t channel) {
 		bp--;
 	}
 }
-
-
-
