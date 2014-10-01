@@ -205,9 +205,8 @@ void KERNEL run(read_only image2d_t channel) {
 	int rlcCount = 0;               
 
 	// first pixel in strip column
-	current |=  (BIT(top) | BIT(leftTop) | BIT(left) | BIT(leftBottom)) << NBH_BITPOS;
-	statePtr[0] = current;
-	bool doRLC = !NBH(current) && !BIT(current);
+	int nbh =  (SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom)) << NBH_BITPOS;
+	bool doRLC = !nbh && !BIT(current);
 	if (doRLC) {
 		rlcCount++;
 	} else {
@@ -228,11 +227,10 @@ void KERNEL run(read_only image2d_t channel) {
 		left		= leftBottom;
 		leftBottom	= statePtr[LEFT_BOTTOM];
 
-		current |=  (BIT(top) | BIT(leftTop) | BIT(left) | BIT(leftBottom)) << NBH_BITPOS;
-		statePtr[0] = current;
+		nbh =  (SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom)) << NBH_BITPOS;
 
 		// toggle doRLC flag
-		doRLC = doRLC && !NBH(current) && !BIT(current);
+		doRLC = doRLC && !nbh && !BIT(current);
 		if (doRLC) {
       
 			rlcCount++;
@@ -253,12 +251,10 @@ void KERNEL run(read_only image2d_t channel) {
 	current		= statePtr[0];
 	leftTop		= left;
 	left		= leftBottom;
-	leftBottom	= statePtr[LEFT_BOTTOM];
 
-	current |=  (BIT(top) | BIT(leftTop) | BIT(left)) << NBH_BITPOS;
-	statePtr[0] = current;
+	nbh =  (SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left)) << NBH_BITPOS;
 
-	doRLC = doRLC && !NBH(current) && !BIT(current);
+	doRLC = doRLC && !nbh && !BIT(current);
 	if (doRLC) {
       
 		rlcCount++;
@@ -274,7 +270,7 @@ void KERNEL run(read_only image2d_t channel) {
 
 	
 	/////////////////////////////////////////////////////////////////////////////////////////////////
-	// 3. Processs rest of bit plans
+	// 3. Processs rest of bit planes
 	bp--;
 	LOCAL char blockVote;
 
@@ -373,19 +369,42 @@ void KERNEL run(read_only image2d_t channel) {
 
 			statePtr = state + startIndex;
 
+			//first pixel in strip column
 			int top			= statePtr[TOP];
 			int leftTop		= statePtr[LEFT_TOP];
 			int left		= statePtr[LEFT];
 			int current		= statePtr[0];
 			int leftBottom  = statePtr[LEFT_BOTTOM];
 
-			// first three pixels in strip column
-			for (int i = 0; i < 3; ++i) {
+			current  |= ( SIGMA_NEW(leftTop) |
+				SIGMA_NEW( top) |
+				SIGMA_NEW( left) | 
+				SIGMA_NEW( leftBottom) ) << NBH_BITPOS; 
+
+			if (  BIT(current) && 
+				        !SIGMA_OLD(current) && 
+						    NBH(current)  && 
+							    !SIGMA_NEW(current)) {
+				SET_SIGMA_NEW(current);
+				blockVote = 1;
+
+			}
+			statePtr[0] = current;
+
+			// next two pixels in strip column
+			for (int i = 0; i < 2; ++i) {
+				statePtr += STATE_BUFFER_STRIDE;
+
+				top			= current;
+				current		= statePtr[0];
+				leftTop		= left;
+				left		= leftBottom;
+				leftBottom  = statePtr[LEFT_BOTTOM];
 
 				current  |= ( SIGMA_NEW(leftTop) |
-							  SIGMA_NEW( top) |
-							  SIGMA_NEW( left) | 
-							  SIGMA_NEW( leftBottom) ) << NBH_BITPOS; 
+					SIGMA_NEW( top) |
+					SIGMA_NEW( left) | 
+					SIGMA_NEW( leftBottom) ) << NBH_BITPOS; 
 
 				if (  BIT(current) && 
 				          !SIGMA_OLD(current) && 
@@ -396,18 +415,18 @@ void KERNEL run(read_only image2d_t channel) {
 
 				}
 				statePtr[0] = current;
-				statePtr += STATE_BUFFER_STRIDE;
-
-				top			= current;
-				current		= statePtr[0];
-				leftTop		= left;
-				left		= leftBottom;
-				leftBottom  = statePtr[LEFT_BOTTOM];
 			}
 
 			// last pixel in strip column -
 			// ignore leftBottom pixel, because it is in the next
 			// stripe and it hasn't been processed yet
+			statePtr += STATE_BUFFER_STRIDE;
+
+			top			= current;
+			current		= statePtr[0];
+			leftTop		= left;
+			left		= leftBottom;
+
 			current |= ( SIGMA_NEW(leftTop) |
 						 SIGMA_NEW( top) |
 						 SIGMA_NEW( left) ) << NBH_BITPOS;
