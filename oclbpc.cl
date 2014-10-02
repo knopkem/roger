@@ -39,6 +39,9 @@ stripe are scanned from left to right.
 #define CODEBLOCKY_X4 128
 
 
+//////////////////////////////////////////////////////
+// State Buffer
+
 #define STATE_BUFFER_SIZE 1156
 #define STATE_BOTTOM_BOUNDARY_OFFSET 1124
 
@@ -58,6 +61,9 @@ stripe are scanned from left to right.
 #define BOTTOM  34
 #define RIGHT_BOTTOM  35
 
+
+////////////////////////////////////////////////////
+// State Variables 
 
 // bit positions (0 based indices)
 #define INPUT_SIGN_BITPOS  15
@@ -85,8 +91,6 @@ stripe are scanned from left to right.
 
 #define INPUT_TO_SIGN_SHIFT 10
 
-CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
-
 #define BIT(pix) (((pix)>>(bp))&1)
 #define NBH(pix) ((pix) & NBH_F)
 #define SIGMA_OLD(pix) ((pix) & SIGMA_OLD_F)
@@ -98,19 +102,107 @@ CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
 #define CLEAR_SIGMA_NEW(pix) ( (pix) &= NOT_SIGMA_NEW_F )
 
 
-/**
+/////////////////////////////////////
+// Context Variables 
+
+/*
+0-2 (CX,D) pairs counter
+3		SPP flag
+4		MRP flag
+5		SPP flag
+8		D4
+9-13	CX4
+14		D3
+15-19	CX3
+20		D2
+21-25	CX2
+26		D1
+27-31	CX1
+
+*/
+
+/////////////////////////////////////////////////////
+
+// TABLES
+/*
+
+// ZERO CODING /////////////////////////////////////
+
+// LL and LH sub-bands
+values					Context
+sumH	sumV	sumD	CX
+2		x		x		8
+1 		1		x		7
+1		0 		1		6
+1		0		0		5
+0		2		x		4	
+0		1		x		3
+0		0 		2		2
+0		0		1		1
+0		0		0		0
 
 
+//HH sub-band
+
+values					Context
+sum(H + V )		sumD	CX
+2 				3		8
+1				2		7
+1				2		6
+1				1		5
+0				1		4
+0				1		3
+0				0		2
+0				0		1
+0				0		0
+
+// HL sub-band
+
+ values Context
+sumH	sumV	sumD	CX
+x		2		x		8
+1		1		x		7
+0		1 		1		6
+0		1		0		5
+2		0		x		4
+1		0		x		3
+0		0 		2		2
+0		0		1		1
+0		0		0		0
 
 
+// SIGN CODING ///////////////////////
 
-**/
+H	V	X^	 CX
+1	1	0	 13
+1	0	0	 12
+1	-1	0	 11
+0	1	0	 10
+0	0	0	 9
+0	-1	1	 10
+-1	1	1	 11
+-1	0	1	 12
+-1 -1	1	 13
+
+
+// Magnitude Refinement //////////////////
+
+
+sigm_prime [y; x]	(H + V + D)	CX
+1					x			16
+0 					1			15
+0					0			14
+
+
+*/
+
+CONSTANT sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE  | CLK_FILTER_NEAREST;
 
 void KERNEL run(read_only image2d_t channel) {
 
 	// state buffer
-	LOCAL int state[STATE_BUFFER_SIZE];
-	LOCAL int cxd[STATE_BUFFER_SIZE];
+	LOCAL uint state[STATE_BUFFER_SIZE];
+	LOCAL uint cxd[STATE_BUFFER_SIZE];
 
 
 	///////////////////////////////////////////////////////////////////////////////////
@@ -121,14 +213,14 @@ void KERNEL run(read_only image2d_t channel) {
 	int maxSigBit;
 	if (getLocalId(1) == 0) {
 
-		int maxVal = 0;
+		uint maxVal = 0;
 		state[getLocalId(0)] = 0;   //top boundary
-		LOCAL int* statePtr = state + (BOUNDARY + getLocalId(0));
+		LOCAL uint* statePtr = state + (BOUNDARY + getLocalId(0));
 		int2 posIn = (int2)(getGlobalId(0),  (getGlobalId(1) >> 3)*CODEBLOCKY);
 
 		for (int i = 0; i < CODEBLOCKY; ++i) {
 			int pixel = read_imagei(channel, sampler, posIn).x;
-			int absPixel = abs(pixel);
+			uint absPixel = abs(pixel);
 			maxVal = max(maxVal, absPixel);
 			pixel = (absPixel << PIXEL_START_BITPOS) | SIGN((pixel << INPUT_TO_SIGN_SHIFT));
 			statePtr[0] = pixel;
@@ -140,7 +232,7 @@ void KERNEL run(read_only image2d_t channel) {
 
 		//initialize full left and right boundary columns
 		if (getLocalId(0) == 0 || getLocalId(0) == CODEBLOCKX-1) {
-			int delta = -1 + (getLocalId(0)/(CODEBLOCKX-1))*2; // -1 or +1
+			int delta = -1 + ((getLocalId(0)/(CODEBLOCKX-1)) << 1); // -1 or +1
 			statePtr = state + BOUNDARY + getLocalId(0) + delta;
 			for (int i = 0; i < CODEBLOCKY+ BOUNDARY_X2; ++i) {
 				 *statePtr = 0;
@@ -180,10 +272,10 @@ void KERNEL run(read_only image2d_t channel) {
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	// 2. CUP on MSB
 
-	int bp = msbScratch[0] + PIXEL_START_BITPOS;
+	uint bp = msbScratch[0] + PIXEL_START_BITPOS;
 
-	// i) set sigma_new for strip column (sigma_old is zero)
-	LOCAL int* statePtr = state + startIndex;
+	// i) set sigma_new for stripe column (sigma_old is zero)
+	LOCAL uint* statePtr = state + startIndex;
 	for (int i = 0; i < 4; ++i) {
 		int current = statePtr[0];
 		current |= BIT(current);
@@ -193,18 +285,18 @@ void KERNEL run(read_only image2d_t channel) {
 	}
 	localMemoryFence();
 		
-	// ii) set nbh for strip column, and do CUP
+	// ii) set nbh for stripe column, and do CUP
 	statePtr = state + startIndex;
-	int current			= statePtr[0];
-	int top				= statePtr[TOP];
-	int leftTop			= statePtr[LEFT_TOP];
-	int left			= statePtr[LEFT];
-	int leftBottom		= statePtr[LEFT_BOTTOM];
+	uint current			= statePtr[0];
+	uint top				= statePtr[TOP];
+	uint leftTop			= statePtr[LEFT_TOP];
+	uint left			= statePtr[LEFT];
+	uint leftBottom		= statePtr[LEFT_BOTTOM];
 
 	int rlcCount = 0;               
 
-	// first pixel in strip column
-	int nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
+	// first pixel in stripe column
+	uint nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
 	bool doRLC = !nbh && !BIT(current);
 	if (doRLC) {
 		rlcCount++;
@@ -216,7 +308,7 @@ void KERNEL run(read_only image2d_t channel) {
 		}
 	}
 
-	// next two pixels in strip column
+	// next two pixels in stripe column
 	for (int i = 0; i < 2; ++i) {
 
 		statePtr += STATE_BUFFER_STRIDE;
@@ -240,7 +332,7 @@ void KERNEL run(read_only image2d_t channel) {
 		}
 	}
 
-	// last pixel in strip column -
+	// last pixel in stripe column -
 	// ignore leftBottom pixel, because it is in the next
 	// stripe and it hasn't been processed yet
 	statePtr += STATE_BUFFER_STRIDE;
@@ -294,15 +386,15 @@ void KERNEL run(read_only image2d_t channel) {
 		// ii) update nbh
 		statePtr = state + startIndex;
 
-		int top			= statePtr[TOP];
-		int leftTop		= statePtr[LEFT_TOP];
-		int rightTop	= statePtr[RIGHT_TOP];
-		int left		= statePtr[LEFT];
-		int current		= statePtr[0];
-		int right		= statePtr[RIGHT];
-		int leftBottom  = statePtr[LEFT_BOTTOM];
-		int bottom		= statePtr[BOTTOM];
-		int rightBottom = statePtr[RIGHT_BOTTOM];
+		uint top			= statePtr[TOP];
+		uint leftTop		= statePtr[LEFT_TOP];
+		uint rightTop	= statePtr[RIGHT_TOP];
+		uint left		= statePtr[LEFT];
+		uint current		= statePtr[0];
+		uint right		= statePtr[RIGHT];
+		uint leftBottom  = statePtr[LEFT_BOTTOM];
+		uint bottom		= statePtr[BOTTOM];
+		uint rightBottom = statePtr[RIGHT_BOTTOM];
 
 		current |=  (   SIGMA_OLD(leftTop) |
 						SIGMA_OLD( top) |
@@ -364,12 +456,12 @@ void KERNEL run(read_only image2d_t channel) {
 
 			statePtr = state + startIndex;
 
-			//first pixel in strip column
-			int top			= statePtr[TOP];
-			int leftTop		= statePtr[LEFT_TOP];
-			int left		= statePtr[LEFT];
-			int current		= statePtr[0];
-			int leftBottom  = statePtr[LEFT_BOTTOM];
+			//first pixel in stripe column
+			uint top			= statePtr[TOP];
+			uint leftTop		= statePtr[LEFT_TOP];
+			uint left			= statePtr[LEFT];
+			uint current		= statePtr[0];
+			uint leftBottom		= statePtr[LEFT_BOTTOM];
 
 			current  |= (   SIGMA_NEW(leftTop) |
 							SIGMA_NEW( top) |
@@ -386,7 +478,7 @@ void KERNEL run(read_only image2d_t channel) {
 			}
 			statePtr[0] = current;
 
-			// next two pixels in strip column
+			// next two pixels in stripe column
 			for (int i = 0; i < 2; ++i) {
 				statePtr += STATE_BUFFER_STRIDE;
 
@@ -412,7 +504,7 @@ void KERNEL run(read_only image2d_t channel) {
 				statePtr[0] = current;
 			}
 
-			// last pixel in strip column -
+			// last pixel in stripe column -
 			// ignore leftBottom pixel, because it is in the next
 			// stripe and it hasn't been processed yet
 			statePtr += STATE_BUFFER_STRIDE;
