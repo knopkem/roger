@@ -34,9 +34,11 @@ Pixels are stored in Sign + Magnitude format
 
 sigma[y][x]			equal to 1 if at least one non-zero bit has been coded, otherwise zero
 
-sigma_prime[y][x]   equal to 1 if magnitude refinement coding has been applied to this pixel, otherwise zero
+sigma_prime[y][x]   equal to 1 if magnitude refinement coding (MRC) has been applied to this pixel, otherwise zero
 
 eta[y][x]		    equal to 1 if zero coding (ZC) has been applied in SPP for this bit plane, otherwise zero
+
+Note: eta gets reset to zero at the start of each bit plane, while sigma and sigma_prime do not.
 
 C. Concepts
 
@@ -52,11 +54,13 @@ Run Length Encoding (RLC) (applied only to first pixel in stripe column)
 
 C. Serial Algorithm
 
-Three pass per bit plane : Significance Propagation Pass (SPP)
-                           Magnitude Refinement Pass	 (MRP)
-						   Clean Up Pass				 (CUP)    
+Three passes per bit plane : Significance Propagation Pass (SPP)
+                             Magnitude Refinement Pass	 (MRP)
+						     Clean Up Pass				 (CUP)    
 
 Only the CUP is performed on the most significant bit plane (MSB)
+
+Algorithm:
 
 i. most significant bit plane is calculated
 
@@ -125,13 +129,11 @@ iv. CUP
 // State Variables 
 
 // bit positions (0 based indices)
-#define INPUT_SIGN_BITPOS  15
+#define INPUT_SIGN_BITPOS  15  // assumes 16 bit signed input
 
-#define SIGMA_NEW_BITPOS   0x1 
+#define SIGMA_NEW_BITPOS   0x0 
 #define SIGMA_OLD_BITPOS   0x1
 #define NBH_BITPOS         0x2
-#define SIGMA_OLD_TO_NBH_SHIFT 0x1
-#define RLC_BITPOS         0x4
 #define PIXEL_START_BITPOS 0xA 
 #define PIXEL_END_BITPOS   0x18 
 #define SIGN_BITPOS        0x19 
@@ -140,8 +142,6 @@ iv. CUP
 #define SIGMA_NEW_F			 0x1		  //position 0
 #define SIGMA_OLD_F			 0x10		  //position  1
 #define NBH_F				 0x20		  //position  2
-#define RLC_F				 0x80		  //position  4
-#define RLC_D_POSITION_F	 0x380        //positions 6-9
 #define PIXEL_F				 0x7FFF0000   //positions 10-24
 #define SIGN_F				 0x2000000    //position  25
 
@@ -149,6 +149,8 @@ iv. CUP
 #define SIGMA_OLD_AND_NEW_F  0x11
 
 #define INPUT_TO_SIGN_SHIFT 10
+#define SIGMA_OLD_TO_NBH_SHIFT 0x1
+
 
 #define BIT(pix) (((pix)>>(bp))&1)
 #define NBH(pix) ((pix) & NBH_F)
@@ -277,7 +279,7 @@ void KERNEL run(read_only image2d_t channel) {
 		LOCAL uint* statePtr = state + (BOUNDARY + getLocalId(0));
 		int2 posIn = (int2)(getGlobalId(0),  (getGlobalId(1) >> 3)*CODEBLOCKY);
 
-		for (int i = 0; i < CODEBLOCKY; ++i) {
+		for (uint i = 0; i < CODEBLOCKY; ++i) {
 			int pixel = read_imagei(channel, sampler, posIn).x;
 			uint absPixel = abs(pixel);
 			maxVal = max(maxVal, absPixel);
@@ -293,7 +295,7 @@ void KERNEL run(read_only image2d_t channel) {
 		if (getLocalId(0) == 0 || getLocalId(0) == CODEBLOCKX-1) {
 			int delta = -1 + ((getLocalId(0)/(CODEBLOCKX-1)) << 1); // -1 or +1
 			statePtr = state + BOUNDARY + getLocalId(0) + delta;
-			for (int i = 0; i < CODEBLOCKY+ BOUNDARY_X2; ++i) {
+			for (uint i = 0; i < CODEBLOCKY+ BOUNDARY_X2; ++i) {
 				 *statePtr = 0;
 				 statePtr += STATE_BUFFER_STRIDE;
 			}
@@ -310,7 +312,7 @@ void KERNEL run(read_only image2d_t channel) {
 		int4 mx = (int4)(maxSigBit);
 
 		LOCAL int* scratchPtr = msbScratch;
-		for(int i=0; i < CODEBLOCKX; i+=4) {
+		for(uint i=0; i < CODEBLOCKX; i+=4) {
 			mx = max(mx,(int4)(msbScratch[i],msbScratch[i+1],msbScratch[i+2],msbScratch[i+3]));
 		}
 		maxSigBit = mx.x;
@@ -335,8 +337,8 @@ void KERNEL run(read_only image2d_t channel) {
 
 	// i) set sigma_new for stripe column (sigma_old is zero)
 	LOCAL uint* statePtr = state + startIndex;
-	for (int i = 0; i < 4; ++i) {
-		int current = statePtr[0];
+	for (uint i = 0; i < 4; ++i) {
+		uint current = statePtr[0];
 		current |= BIT(current);	// set sigma_new
 		*statePtr = current;	
 		statePtr += STATE_BUFFER_STRIDE;
@@ -345,49 +347,52 @@ void KERNEL run(read_only image2d_t channel) {
 	localMemoryFence();
 		
 	// ii) set nbh for stripe column, and do CUP
+
+	char rlcFirstSigBit = 0;	//y coordinate of first significant bit in strip
+	uint current0,current1,current2,current3;
+
 	statePtr = state + startIndex;
-	uint current			= statePtr[0];
+	current0				= statePtr[0];
 	uint top				= statePtr[TOP];
 	uint leftTop			= statePtr[LEFT_TOP];
 	uint left				= statePtr[LEFT];
 	uint leftBottom			= statePtr[LEFT_BOTTOM];
 
-	int rlcCount = 0;               
-
 	// first pixel in stripe column
 	uint nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
-	bool doRLC = !nbh && !SIGMA_NEW(current);
+	bool doRLC = !nbh && !SIGMA_NEW(current0);
 
-	// next two pixels in stripe column
-	for (int i = 0; i < 2; ++i) {
+	statePtr += STATE_BUFFER_STRIDE;
+	top			= current0;
+	current1	= statePtr[0];
+	leftTop		= left;
+	left		= leftBottom;
+	leftBottom	= statePtr[LEFT_BOTTOM];
 
-		statePtr += STATE_BUFFER_STRIDE;
-		top = current;
-		current		= statePtr[0];
-		leftTop		= left;
-		left		= leftBottom;
-		leftBottom	= statePtr[LEFT_BOTTOM];
+	nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
+	doRLC = doRLC && (!nbh && !SIGMA_NEW(current1));
 
-		nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
-		doRLC = doRLC && (!nbh && !SIGMA_NEW(current));
-	}
+	statePtr += STATE_BUFFER_STRIDE;
+	top			= current1;
+	current2	= statePtr[0];
+	leftTop		= left;
+	left		= leftBottom;
+	leftBottom	= statePtr[LEFT_BOTTOM];
+
+	nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
+	doRLC = doRLC && (!nbh && !SIGMA_NEW(current2));
 
 	// last pixel in stripe column -
 	// ignore leftBottom pixel, because it is in the next
 	// stripe and it hasn't been processed yet
 	statePtr += STATE_BUFFER_STRIDE;
-	top			= current;
-	current		= statePtr[0];
+	top			= current2;
+	current3	= statePtr[0];
 	leftTop		= left;
 	left		= leftBottom;
 
 	nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left);
-	doRLC = doRLC && (!nbh && !SIGMA_NEW(current));
-
-	if (doRLC) {
-	    //RLC on first pixel
-	}
-
+	doRLC = doRLC && (!nbh && !SIGMA_NEW(current3));
 
 	localMemoryFence();
 
@@ -405,8 +410,8 @@ void KERNEL run(read_only image2d_t channel) {
 
 		// i) migrate sigma_new to sigma_old, and clear sigma new bit
 		statePtr = state + startIndex;
-		for (int i = 0; i < 4; ++i) {
-		    int current = *statePtr;
+		for (uint i = 0; i < 4; ++i) {
+		    uint current = *statePtr;
 			current |=  SIGMA_NEW(current) << SIGMA_OLD_BITPOS;  
 			CLEAR_SIGMA_NEW(current); 
 
@@ -446,7 +451,7 @@ void KERNEL run(read_only image2d_t channel) {
 		}
 		*statePtr = current;
 
-		for (int i = 0; i < 3; ++i) {
+		for (uint i = 0; i < 3; ++i) {
 			statePtr += STATE_BUFFER_STRIDE;
 				
 			top			 = current;
@@ -506,7 +511,7 @@ void KERNEL run(read_only image2d_t channel) {
 			statePtr[0] = current;
 
 			// next two pixels in stripe column
-			for (int i = 0; i < 2; ++i) {
+			for (uint i = 0; i < 2; ++i) {
 				statePtr += STATE_BUFFER_STRIDE;
 
 				top			= current;
@@ -566,7 +571,6 @@ void KERNEL run(read_only image2d_t channel) {
 		rightBottom		= statePtr[RIGHT_BOTTOM];
 
 		doRLC = false;
-		rlcCount = 0;
 		if (!doRLC && SIGMA_OLD(current)) {
 			// MRC
 		} else {
@@ -582,7 +586,7 @@ void KERNEL run(read_only image2d_t channel) {
 			doRLC = !nbh && !SIGMA_NEW(current);		
 		}
 
-		for (int i = 0; i < 3; ++i) {
+		for (uint i = 0; i < 3; ++i) {
 			statePtr += STATE_BUFFER_STRIDE;	
 
 			top			= current;
