@@ -168,7 +168,7 @@
       <OTHER Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-D CODEBLOCKX=32 -D CODEBLOCKY=32</OTHER>
     </Intel_OpenCL_Build_Rules>
     <Intel_OpenCL_Build_Rules Include="oclplanar.cl">
-      <OTHER Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-D WIN_SIZE_X=16 -D WIN_SIZE_Y=16;%(OTHER)</OTHER>
+      <OTHER Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-D WIN_SIZE_X=16 -D WIN_SIZE_Y=16</OTHER>
     </Intel_OpenCL_Build_Rules>
     <Intel_OpenCL_Build_Rules Include="ocl_platform.cl" />
   </ItemGroup>
