@@ -28,6 +28,65 @@ Xx4 stripes
 The stripes are scanned from top to bottom, and the columns within a
 stripe are scanned from left to right.
 
+B. Serial State Variables
+
+Pixels are stored in Sign + Magnitude format
+
+sigma[y][x]			equal to 1 if at least one non-zero bit has been coded, otherwise zero
+
+sigma_prime[y][x]   equal to 1 if magnitude refinement coding has been applied to this pixel, otherwise zero
+
+eta[y][x]		    equal to 1 if zero coding (ZC) has been applied in SPP for this bit plane, otherwise zero
+
+C. Concepts
+
+Preferred Neighbourhood: at least one of the eight neighbours has sigma[y][x] == 1
+
+Sign Coding (SC)
+Zero Coding (ZC)
+Magnitude Refinement Coding (MRC)
+Run Length Encoding (RLC) (applied only to first pixel in stripe column)
+	- if we are at the first pixel in the column, and all four pixels in column have sigma == 0 and eta == 0,
+      then apply RLC to current pixel
+	- occurrence of first 1 bit in column determines how RLC is coded
+
+C. Serial Algorithm
+
+Three pass per bit plane : Significance Propagation Pass (SPP)
+                           Magnitude Refinement Pass	 (MRP)
+						   Clean Up Pass				 (CUP)    
+
+Only the CUP is performed on the most significant bit plane (MSB)
+
+i. most significant bit plane is calculated
+
+ii.  SPP
+     // not significant, and in preferred nbhd
+     if in preferred nbhd and sigma[y][x] == 0 then
+	     ZC
+		 eta[y][x] = 1
+		 if (encoded bit == 1) then
+			SC
+			sigma[y][x] = 1
+		 end if
+	end if
+
+
+iii. MRP
+     // significant, but ZC has not been performed in SPP
+	`if (sigma[y][x] == 1 and eta[y][x] == 0 then
+		MRC
+		sigma_prime = 1
+	end if
+
+iv. CUP
+    // not significant, and not in preferred nbhd
+	if sigma[y][x] == 0 and eta[y][x] == 0 then
+		if pixel meets RLC conditions then
+		   RLC
+		else
+		   ZC
+		endif
 */
 
 
@@ -106,7 +165,7 @@ stripe are scanned from left to right.
 // Context Variables 
 
 /*
-0-2 (CX,D) pairs counter
+0-2		(CX,D) pairs counter
 3		SPP flag
 4		MRP flag
 5		SPP flag
@@ -278,7 +337,7 @@ void KERNEL run(read_only image2d_t channel) {
 	LOCAL uint* statePtr = state + startIndex;
 	for (int i = 0; i < 4; ++i) {
 		int current = statePtr[0];
-		current |= BIT(current);
+		current |= BIT(current);	// set sigma_new
 		*statePtr = current;	
 		statePtr += STATE_BUFFER_STRIDE;
 
@@ -290,23 +349,14 @@ void KERNEL run(read_only image2d_t channel) {
 	uint current			= statePtr[0];
 	uint top				= statePtr[TOP];
 	uint leftTop			= statePtr[LEFT_TOP];
-	uint left			= statePtr[LEFT];
-	uint leftBottom		= statePtr[LEFT_BOTTOM];
+	uint left				= statePtr[LEFT];
+	uint leftBottom			= statePtr[LEFT_BOTTOM];
 
 	int rlcCount = 0;               
 
 	// first pixel in stripe column
 	uint nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
-	bool doRLC = !nbh && !BIT(current);
-	if (doRLC) {
-		rlcCount++;
-	} else {
-		//ZC
-
-		if (BIT(current)) {
-		    //SC
-		}
-	}
+	bool doRLC = !nbh && !SIGMA_NEW(current);
 
 	// next two pixels in stripe column
 	for (int i = 0; i < 2; ++i) {
@@ -319,17 +369,7 @@ void KERNEL run(read_only image2d_t channel) {
 		leftBottom	= statePtr[LEFT_BOTTOM];
 
 		nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
-		doRLC = doRLC && !nbh && !BIT(current);
-		if (doRLC) {
-      
-			rlcCount++;
-		} else {
-		   //ZC
-
-		   if (BIT(current)) {
-		       //SC
-		   }
-		}
+		doRLC = doRLC && (!nbh && !SIGMA_NEW(current));
 	}
 
 	// last pixel in stripe column -
@@ -342,18 +382,12 @@ void KERNEL run(read_only image2d_t channel) {
 	left		= leftBottom;
 
 	nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left);
+	doRLC = doRLC && (!nbh && !SIGMA_NEW(current));
 
-	doRLC = doRLC && !nbh && !BIT(current);
 	if (doRLC) {
-      
-		rlcCount++;
-	} else {
-		//ZC
-
-		if (BIT(current)) {
-		    //SC
-		}
+	    //RLC on first pixel
 	}
+
 
 	localMemoryFence();
 
@@ -405,9 +439,7 @@ void KERNEL run(read_only image2d_t channel) {
 						SIGMA_OLD( bottom) |
 						SIGMA_OLD( rightBottom)  ) << SIGMA_OLD_TO_NBH_SHIFT; 
 
-		if ( BIT(current) && 
-				NBH(current) && 
-					!SIGMA_OLD(current) ) {
+		if ( BIT(current) && NBH(current) && !SIGMA_OLD(current) ) {
 			SET_SIGMA_NEW(current);
 			blockVote = 1;
 
@@ -436,9 +468,7 @@ void KERNEL run(read_only image2d_t channel) {
 							 SIGMA_OLD( bottom) |
 							 SIGMA_OLD( rightBottom)  ) << SIGMA_OLD_TO_NBH_SHIFT; 
 
-			if ( BIT(current) &&
-					 NBH(current) &&
-						 !SIGMA_OLD(current) ) {
+			if ( BIT(current) && NBH(current) && !SIGMA_OLD(current) ) {
 			    SET_SIGMA_NEW(current);
 				blockVote = 1;
 			}
@@ -468,10 +498,7 @@ void KERNEL run(read_only image2d_t channel) {
 							SIGMA_NEW( left) | 
 							SIGMA_NEW( leftBottom) ) << NBH_BITPOS; 
 
-			if (  BIT(current) && 
-				        !SIGMA_OLD(current) && 
-						    NBH(current)  && 
-							    !SIGMA_NEW(current)) {
+			if (  BIT(current) && !SIGMA_OLD(current) &&  NBH(current)  &&  !SIGMA_NEW(current)) {
 				SET_SIGMA_NEW(current);
 				blockVote = 1;
 
@@ -493,10 +520,7 @@ void KERNEL run(read_only image2d_t channel) {
 								SIGMA_NEW( left) | 
 								SIGMA_NEW( leftBottom) ) << NBH_BITPOS; 
 
-				if (  BIT(current) && 
-				          !SIGMA_OLD(current) && 
-						      NBH(current)  && 
-							     !SIGMA_NEW(current)) {
+				if (  BIT(current) && !SIGMA_OLD(current) && NBH(current)  && !SIGMA_NEW(current)) {
 					SET_SIGMA_NEW(current);
 					blockVote = 1;
 
@@ -517,10 +541,7 @@ void KERNEL run(read_only image2d_t channel) {
 			current |= ( SIGMA_NEW(leftTop) |
 						 SIGMA_NEW( top) |
 						 SIGMA_NEW( left) ) << NBH_BITPOS;
-			if (  BIT(current) && 
-			        !SIGMA_OLD(current) && 
-					    NBH(current)  &&
-						    !SIGMA_NEW(current)) {
+			if (  BIT(current) && !SIGMA_OLD(current) && NBH(current)  && !SIGMA_NEW(current)) {
 				SET_SIGMA_NEW(current);
 				blockVote = 1;
 			}
@@ -546,7 +567,7 @@ void KERNEL run(read_only image2d_t channel) {
 
 		doRLC = false;
 		rlcCount = 0;
-		if (SIGMA_OLD(current)) {
+		if (!doRLC && SIGMA_OLD(current)) {
 			// MRC
 		} else {
 			int nbh = ( SIGMA_OLD_AND_NEW(leftTop) |
@@ -558,21 +579,7 @@ void KERNEL run(read_only image2d_t channel) {
 						SIGMA_OLD_AND_NEW( bottom) |
 						SIGMA_OLD_AND_NEW( rightBottom)  ) ; 
 
-						
-			if (!nbh) {
-				if ( !SIGMA_NEW(current) ) {
-					doRLC = !BIT(current);
-					if (doRLC) {
-					   rlcCount++;
-					}
-				}
-			}
-			else  {
-				// ZC
-				if (BIT(current)) {
-				    //SC
-				}
-			}
+			doRLC = !nbh && !SIGMA_NEW(current);		
 		}
 
 		for (int i = 0; i < 3; ++i) {
@@ -588,7 +595,7 @@ void KERNEL run(read_only image2d_t channel) {
 			bottom		= statePtr[BOTTOM];
 			rightBottom = statePtr[RIGHT_BOTTOM];
 
-			if (SIGMA_OLD(current)) {
+			if (!doRLC && SIGMA_OLD(current)) {
 				// MRC
 			} else {
 				int nbh = ( SIGMA_OLD_AND_NEW(leftTop) |
@@ -600,22 +607,7 @@ void KERNEL run(read_only image2d_t channel) {
 							SIGMA_OLD_AND_NEW( bottom) |
 							SIGMA_OLD_AND_NEW( rightBottom)  ) ; 
 
-				if (!nbh) {
-					if ( !SIGMA_NEW(current) ) {
-						doRLC = doRLC && !BIT(current);
-						if (!doRLC) {
-
-							rlcCount++;
-
-						}
-					}
-				}
-				else  {
-					// ZC
-					if (BIT(current)) {
-						//SC
-					}
-				}
+				doRLC = doRLC && !nbh && !SIGMA_NEW(current);	
 			}
 		}
 
