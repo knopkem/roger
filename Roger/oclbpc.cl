@@ -347,53 +347,81 @@ void KERNEL run(read_only image2d_t channel) {
 	localMemoryFence();
 		
 	// ii) set nbh for stripe column, and do CUP
+	
+	// Note: since this is the very first pass on this code block, the only possible significant pixels
+	// following the scan pattern are the those in top, left top, left and left bottom positions.
 
-	char rlcFirstSigBit = 0;	//y coordinate of first significant bit in strip
-	uint current0,current1,current2,current3;
+	// RLC (which runs through all consecutive non-significant pixels in column)
+	// ZC/SC on rest of pixels in column
 
-	statePtr = state + startIndex;
-	current0				= statePtr[0];
+	statePtr				= state + startIndex;
+	uint current			= statePtr[0];
 	uint top				= statePtr[TOP];
 	uint leftTop			= statePtr[LEFT_TOP];
 	uint left				= statePtr[LEFT];
 	uint leftBottom			= statePtr[LEFT_BOTTOM];
 
+
 	// first pixel in stripe column
 	uint nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
-	bool doRLC = !nbh && !SIGMA_NEW(current0);
+	bool doRLC = !nbh && !SIGMA_NEW(current);
+	if (!doRLC) {
+		if (nbh) {
+			//ZC
+		}
+		if (SIGMA_NEW(current) ){
+			//SC
+		}
+	}
 
-	statePtr += STATE_BUFFER_STRIDE;
-	top			= current0;
-	current1	= statePtr[0];
-	leftTop		= left;
-	left		= leftBottom;
-	leftBottom	= statePtr[LEFT_BOTTOM];
+	for (int i = 0; i < 2; ++i) {
+		statePtr += STATE_BUFFER_STRIDE;
+		top			= current;
+		current		= statePtr[0];
+		leftTop		= left;
+		left		= leftBottom;
+		leftBottom	= statePtr[LEFT_BOTTOM];
 
-	nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
-	doRLC = doRLC && (!nbh && !SIGMA_NEW(current1));
-
-	statePtr += STATE_BUFFER_STRIDE;
-	top			= current1;
-	current2	= statePtr[0];
-	leftTop		= left;
-	left		= leftBottom;
-	leftBottom	= statePtr[LEFT_BOTTOM];
-
-	nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
-	doRLC = doRLC && (!nbh && !SIGMA_NEW(current2));
-
+		nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
+		bool doRLCold = doRLC;
+		doRLC = doRLC && !nbh && !SIGMA_NEW(current);
+		if (!doRLC) {
+		    if (doRLCold) {
+				//RLC 
+			}
+			if (nbh) {
+				//ZC
+			}
+			if (SIGMA_NEW(current)) {
+				//SC
+			}
+		}
+	}
+			
 	// last pixel in stripe column -
 	// ignore leftBottom pixel, because it is in the next
 	// stripe and it hasn't been processed yet
 	statePtr += STATE_BUFFER_STRIDE;
-	top			= current2;
-	current3	= statePtr[0];
+	top			= current;
+	current		= statePtr[0];
 	leftTop		= left;
 	left		= leftBottom;
 
 	nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left);
-	doRLC = doRLC && (!nbh && !SIGMA_NEW(current3));
+	bool doRLCold = doRLC;
+	doRLC = doRLC && !nbh && !SIGMA_NEW(current);
+	if (!doRLC) {
+	   if (doRLCold) {
+		  //RLC
+	   }
 
+		if (nbh) {
+			//ZC
+		}
+		if (SIGMA_NEW(current)) {
+			//SC
+		}
+	}
 	localMemoryFence();
 
 	
@@ -560,6 +588,8 @@ void KERNEL run(read_only image2d_t channel) {
 		// 5. bit plane processing 
 		statePtr = state + startIndex;
 
+		uint current0,current1,current2,current3;
+
 		top = statePtr[TOP];
 		leftTop			= statePtr[LEFT_TOP];
 		rightTop		= statePtr[RIGHT_TOP];
@@ -570,7 +600,7 @@ void KERNEL run(read_only image2d_t channel) {
 		bottom			= statePtr[BOTTOM];
 		rightBottom		= statePtr[RIGHT_BOTTOM];
 
-		doRLC = false;
+		bool doRLC = false;
 		if (!doRLC && SIGMA_OLD(current)) {
 			// MRC
 		} else {
