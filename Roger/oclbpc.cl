@@ -387,7 +387,7 @@ void KERNEL run(read_only image2d_t channel) {
 		doRLC = doRLC && !nbh && !SIGMA_NEW(current);
 		if (!doRLC) {
 		    if (wasDoingRLC) {
-				//RLC 
+				//RLC for first (i+1) pixels
 			}
 			if (nbh) {
 				//ZC
@@ -410,9 +410,12 @@ void KERNEL run(read_only image2d_t channel) {
 	nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left);
 	bool wasDoingRLC = doRLC;
 	doRLC = doRLC && !nbh && !SIGMA_NEW(current);
-	if (!doRLC) {
+	if (doRLC) {
+		//RLC for first all four pixels in stripe column
+	}
+	else {
 	   if (wasDoingRLC) {
-		  //RLC
+		  //RLC for first three pixels in stripe column
 	   }
 
 		if (nbh) {
@@ -641,7 +644,7 @@ void KERNEL run(read_only image2d_t channel) {
 
 			if (SIGMA_OLD(current)) {
 			    if (doRLC) {
-					//RLC
+					//RLC for first (i+1) pixels
 					doRLC = false;
 				}
 				// MRC
@@ -659,7 +662,7 @@ void KERNEL run(read_only image2d_t channel) {
 				doRLC = doRLC && !nbh && !SIGMA_NEW(current);	
 				if (!doRLC) {
 					if (wasDoingRLC) {
-						//RLC
+						//RLC for first (i+1) pixels
 					}
 					if (nbh) {
 						//ZC
@@ -686,7 +689,7 @@ void KERNEL run(read_only image2d_t channel) {
 
 		if (SIGMA_OLD(current)) {
 			if (doRLC) {
-				//RLC
+				//RLC for first three pixels
 			}
 			// MRC
 		} else {
@@ -698,9 +701,11 @@ void KERNEL run(read_only image2d_t channel) {
 
 			bool wasDoingRLC = doRLC;
 			doRLC = doRLC && !nbh && !SIGMA_NEW(current);	
-			if (!doRLC) {
+			if (doRLC) {
+				// RLC for all four pixels in stripe column
+			} else {
 				if (wasDoingRLC) {
-					//RLC
+					//RLC for first three pixels in column
 				}
 				if (nbh) {
 					//ZC
