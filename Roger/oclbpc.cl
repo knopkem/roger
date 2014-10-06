@@ -91,6 +91,14 @@ iv. CUP
 		else
 		   ZC
 		endif
+
+
+D. Parallel Algorithm
+
+Note: For a given bit plane, sigma_new from next stripe must be ignored, because in the serial algorithm, 
+the next strip would not be processed yet.
+
+
 */
 
 
@@ -375,7 +383,7 @@ void KERNEL run(read_only image2d_t channel) {
 	}
 
 	for (int i = 0; i < 2; ++i) {
-		statePtr += STATE_BUFFER_STRIDE;
+		statePtr   += STATE_BUFFER_STRIDE;
 		top			= current;
 		current		= statePtr[0];
 		leftTop		= left;
@@ -677,7 +685,7 @@ void KERNEL run(read_only image2d_t channel) {
 			}
 		}
 
-		// last pixel in stripe column
+		// last pixel in stripe column (ignore sigma_new from next stripe)
 		statePtr += STATE_BUFFER_STRIDE;	
 
 		top			= current;
@@ -686,6 +694,9 @@ void KERNEL run(read_only image2d_t channel) {
 		left		= leftBottom;
 		current		= statePtr[0];
 		right		= rightBottom;
+		leftBottom  = statePtr[LEFT_BOTTOM];
+		bottom		= statePtr[BOTTOM];
+		rightBottom = statePtr[RIGHT_BOTTOM];
 
 		if (SIGMA_OLD(current)) {
 			if (doRLC) {
@@ -694,10 +705,13 @@ void KERNEL run(read_only image2d_t channel) {
 			// MRC
 		} else {
 			int nbh = ( SIGMA_OLD_AND_NEW(leftTop) |
-						SIGMA_OLD_AND_NEW( top) |
-						SIGMA_OLD_AND_NEW( rightTop) |
-						SIGMA_OLD_AND_NEW( left) | 
-						SIGMA_OLD_AND_NEW( right)  ) ; 
+							SIGMA_OLD_AND_NEW( top) |
+							SIGMA_OLD_AND_NEW( rightTop) |
+							SIGMA_OLD_AND_NEW( left) | 
+							SIGMA_OLD_AND_NEW( right) | 
+							SIGMA_OLD( leftBottom) |
+							SIGMA_OLD( bottom) |
+							SIGMA_OLD( rightBottom)  ) ; 
 
 			bool wasDoingRLC = doRLC;
 			doRLC = doRLC && !nbh && !SIGMA_NEW(current);	
