@@ -98,6 +98,15 @@ D. Parallel Algorithm
 Note: For a given bit plane, sigma_new from next stripe must be ignored, because in the serial algorithm, 
 the next strip would not be processed yet.
 
+i) MSB is calculated
+
+ii) perform CUP on MSB
+
+iii) loop over all remaining bit planes, performing the following:
+     a) transfer sigma_new to sigma_old, and clear sigma_new
+	 b) block vote loop to set sigma_new for all pixels in code block
+	 c) coding pass: RLC, MRC, ZC and SC
+	 d) MQ coder after each pass
 
 */
 
@@ -359,7 +368,8 @@ void KERNEL run(read_only image2d_t channel) {
 	// Note: since this is the very first pass on this code block, the only possible significant pixels
 	// following the scan pattern are the those in top, left top, left and left bottom positions.
 
-	// RLC (which runs through all consecutive non-significant pixels in column)
+	// RLC - runs through all consecutive non-significant pixels in column that are not in preferred neighbourhood,
+	//       starting from first pixel in stripe column
 	// ZC/SC on rest of pixels in column
 
 	statePtr				= state + startIndex;
@@ -419,7 +429,7 @@ void KERNEL run(read_only image2d_t channel) {
 	bool wasDoingRLC = doRLC;
 	doRLC = doRLC && !nbh && !SIGMA_NEW(current);
 	if (doRLC) {
-		//RLC for first all four pixels in stripe column
+		//RLC for all four pixels in stripe column
 	}
 	else {
 	   if (wasDoingRLC) {
@@ -466,13 +476,13 @@ void KERNEL run(read_only image2d_t channel) {
 
 		uint top			= statePtr[TOP];
 		uint leftTop		= statePtr[LEFT_TOP];
-		uint rightTop	= statePtr[RIGHT_TOP];
-		uint left		= statePtr[LEFT];
+		uint rightTop		= statePtr[RIGHT_TOP];
+		uint left			= statePtr[LEFT];
 		uint current		= statePtr[0];
-		uint right		= statePtr[RIGHT];
-		uint leftBottom  = statePtr[LEFT_BOTTOM];
-		uint bottom		= statePtr[BOTTOM];
-		uint rightBottom = statePtr[RIGHT_BOTTOM];
+		uint right			= statePtr[RIGHT];
+		uint leftBottom		= statePtr[LEFT_BOTTOM];
+		uint bottom			= statePtr[BOTTOM];
+		uint rightBottom	= statePtr[RIGHT_BOTTOM];
 
 		current |=  (   SIGMA_OLD(leftTop) |
 						SIGMA_OLD( top) |
