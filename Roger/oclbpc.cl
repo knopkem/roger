@@ -383,10 +383,10 @@ void KERNEL run(read_only image2d_t channel) {
 		leftBottom	= statePtr[LEFT_BOTTOM];
 
 		nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left) | SIGMA_NEW(leftBottom);
-		bool doRLCold = doRLC;
+		bool wasDoingRLC = doRLC;
 		doRLC = doRLC && !nbh && !SIGMA_NEW(current);
 		if (!doRLC) {
-		    if (doRLCold) {
+		    if (wasDoingRLC) {
 				//RLC 
 			}
 			if (nbh) {
@@ -408,10 +408,10 @@ void KERNEL run(read_only image2d_t channel) {
 	left		= leftBottom;
 
 	nbh =  SIGMA_NEW(top) | SIGMA_NEW(leftTop) | SIGMA_NEW(left);
-	bool doRLCold = doRLC;
+	bool wasDoingRLC = doRLC;
 	doRLC = doRLC && !nbh && !SIGMA_NEW(current);
 	if (!doRLC) {
-	   if (doRLCold) {
+	   if (wasDoingRLC) {
 		  //RLC
 	   }
 
@@ -588,9 +588,8 @@ void KERNEL run(read_only image2d_t channel) {
 		// 5. bit plane processing 
 		statePtr = state + startIndex;
 
-		uint current0,current1,current2,current3;
-
-		top = statePtr[TOP];
+		// first pixel in stripe column
+		top				= statePtr[TOP];
 		leftTop			= statePtr[LEFT_TOP];
 		rightTop		= statePtr[RIGHT_TOP];
 		left			= statePtr[LEFT];
@@ -601,7 +600,7 @@ void KERNEL run(read_only image2d_t channel) {
 		rightBottom		= statePtr[RIGHT_BOTTOM];
 
 		bool doRLC = false;
-		if (!doRLC && SIGMA_OLD(current)) {
+		if (SIGMA_OLD(current)) {
 			// MRC
 		} else {
 			int nbh = ( SIGMA_OLD_AND_NEW(leftTop) |
@@ -613,10 +612,21 @@ void KERNEL run(read_only image2d_t channel) {
 						SIGMA_OLD_AND_NEW( bottom) |
 						SIGMA_OLD_AND_NEW( rightBottom)  ) ; 
 
-			doRLC = !nbh && !SIGMA_NEW(current);		
+			doRLC = !nbh && !SIGMA_NEW(current);	
+			if (!doRLC) {
+				 if (nbh) {
+					//ZC
+				 }
+
+                // could be from SPP or CUP
+				if (BIT(current)) {
+					//SC
+				}
+			}	
 		}
 
-		for (uint i = 0; i < 3; ++i) {
+		// next two pixels in stripe column
+		for (uint i = 0; i < 2; ++i) {
 			statePtr += STATE_BUFFER_STRIDE;	
 
 			top			= current;
@@ -629,7 +639,11 @@ void KERNEL run(read_only image2d_t channel) {
 			bottom		= statePtr[BOTTOM];
 			rightBottom = statePtr[RIGHT_BOTTOM];
 
-			if (!doRLC && SIGMA_OLD(current)) {
+			if (SIGMA_OLD(current)) {
+			    if (doRLC) {
+					//RLC
+					doRLC = false;
+				}
 				// MRC
 			} else {
 				int nbh = ( SIGMA_OLD_AND_NEW(leftTop) |
@@ -641,10 +655,63 @@ void KERNEL run(read_only image2d_t channel) {
 							SIGMA_OLD_AND_NEW( bottom) |
 							SIGMA_OLD_AND_NEW( rightBottom)  ) ; 
 
+				bool wasDoingRLC = doRLC;
 				doRLC = doRLC && !nbh && !SIGMA_NEW(current);	
+				if (!doRLC) {
+					if (wasDoingRLC) {
+						//RLC
+					}
+					if (nbh) {
+						//ZC
+					}
+
+					// could be from SPP or CUP
+					if (BIT(current) ) {
+						//SC
+					}
+
+				}
 			}
 		}
 
+		// last pixel in stripe column
+		statePtr += STATE_BUFFER_STRIDE;	
+
+		top			= current;
+		leftTop		= left;
+		rightTop	= right;
+		left		= leftBottom;
+		current		= statePtr[0];
+		right		= rightBottom;
+
+		if (SIGMA_OLD(current)) {
+			if (doRLC) {
+				//RLC
+			}
+			// MRC
+		} else {
+			int nbh = ( SIGMA_OLD_AND_NEW(leftTop) |
+						SIGMA_OLD_AND_NEW( top) |
+						SIGMA_OLD_AND_NEW( rightTop) |
+						SIGMA_OLD_AND_NEW( left) | 
+						SIGMA_OLD_AND_NEW( right)  ) ; 
+
+			bool wasDoingRLC = doRLC;
+			doRLC = doRLC && !nbh && !SIGMA_NEW(current);	
+			if (!doRLC) {
+				if (wasDoingRLC) {
+					//RLC
+				}
+				if (nbh) {
+					//ZC
+				}
+
+				// could be from SPP or CUP
+				if (BIT(current) ) {
+					//SC
+				}
+			}
+		}
 		localMemoryFence();
 		bp--;
 	}
