@@ -1,110 +1,136 @@
-# - Try to find OpenCL
-# Once done this will define
-#  
-#  OpenCL_FOUND        - system has OpenCL
-#  OpenCL_INCLUDE_DIRS - the OpenCL include directory
-#  OpenCL_LIBRARIES    - link these to use OpenCL
+#.rst:
+# FindOpenCL
+# ----------
 #
-# macro(opencl_add_file sources_cpp sources_h filename_cl includeFile exportName)
-# Creates cpp and header from the input opencl file.
-# The generated filenames are appended to the sources_cpp and sources_h inputs.
+# Try to find OpenCL
+#
+# Once done this will define::
+#
+#   OpenCL_FOUND          - True if OpenCL was found
+#   OpenCL_INCLUDE_DIRS   - include directories for OpenCL
+#   OpenCL_LIBRARIES      - link against this library to use OpenCL
+#   OpenCL_VERSION_STRING - Highest supported OpenCL version (eg. 1.2)
+#   OpenCL_VERSION_MAJOR  - The major version of the OpenCL implementation
+#   OpenCL_VERSION_MINOR  - The minor version of the OpenCL implementation
+#
+# The module will also define two cache variables::
+#
+#   OpenCL_INCLUDE_DIR    - the OpenCL include directory
+#   OpenCL_LIBRARY        - the path to the OpenCL library
+#
 
-if ( OpenCL_FOUND )
-  return()
-endif()
+#=============================================================================
+# Copyright 2014 Matthaeus G. Chajdas
+#
+# Distributed under the OSI-approved BSD License (the "License");
+# see accompanying file Copyright.txt for details.
+#
+# This software is distributed WITHOUT ANY WARRANTY; without even the
+# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the License for more information.
+#=============================================================================
+# (To distribute this file outside of CMake, substitute the full
+#  License text for the above reference.)
 
-macro(opencl_add_file sources_cpp sources_h filename_cl includeFile exportName)
-  get_filename_component(basename "${filename_cl}" NAME_WE )
-  get_filename_component(extension "${filename_cl}" EXT )
-  string(REGEX REPLACE "\\." "" extension "${extension}")  #Strip leading .
-  set(srcFile "${basename}_${extension}.cpp") 
-  set(headerFile "${basename}_${extension}.h") 
-  set(contentsFile "${filename_cl}") 
-  set(varName "${basename}_${extension}")
-  string(REGEX REPLACE "(.*/)" "" varName "${varName}")  
+function(_FIND_OPENCL_VERSION)
+  include(CheckSymbolExists)
+  include(CMakePushCheckState)
+  set(CMAKE_REQUIRED_QUIET ${OpenCL_FIND_QUIETLY})
 
-  add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${srcFile} ${CMAKE_CURRENT_BINARY_DIR}/${headerFile}
-    COMMAND ${CMAKE_COMMAND} 
-    ARGS "-DContentsFile:PATH=${contentsFile}" 
-         "-DResourceHeaderFile:PATH=${CMAKE_CURRENT_BINARY_DIR}/${headerFile}"
-         "-DResourceSourceFile:PATH=${CMAKE_CURRENT_BINARY_DIR}/${srcFile}"
-         "-DAdditionalIncludeFile:PATH=${includeFile}"
-         "-DVarName:STRING=${varName}"
-         "-DExportName:STRING=${exportName}"
-         "-P" "${CMAKE_SOURCE_DIR}/cmake/opencl/FileToString.cmake"
-    DEPENDS ${contentsFile} ${includeFile}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    )
+  CMAKE_PUSH_CHECK_STATE()
+  foreach(VERSION "2_0" "1_2" "1_1" "1_0")
+    set(CMAKE_REQUIRED_INCLUDES "${OpenCL_INCLUDE_DIR}")
 
-    list(APPEND ${sources_cpp} "${CMAKE_CURRENT_BINARY_DIR}/${srcFile}")
-    list(APPEND ${sources_h}   "${CMAKE_CURRENT_BINARY_DIR}/${headerFile}")
-endmacro(opencl_add_file)
-
-if (WIN32)
-
-    # find out if the user asked for a 64-bit build, and use the corresponding 
-    # 64 or 32 bit library paths to the search:
-    if(CMAKE_SIZEOF_VOID_P MATCHES 8)
-        set(_cuda32_64   x64)
-        set(_ati32_64    x86_64)
-        set(_intel32_64  x64)
+    if(APPLE)
+      CHECK_SYMBOL_EXISTS(
+        CL_VERSION_${VERSION}
+        "${OpenCL_INCLUDE_DIR}/OpenCL/cl.h"
+        OPENCL_VERSION_${VERSION})
     else()
-        set(_cuda32_64   Win32)
-        set(_ati32_64    x86)
-        set(_intel32_64  x86)
-    endif() 
-
-    find_path(OpenCL_INCLUDE_DIRS
-        CL/cl.h
-        PATHS "$ENV{CUDA_PATH}/include"
-              "$ENV{ATISTREAMSDKROOT}/include"
-              "$ENV{ATIINTERNALSTREAMSDKROOT}/include"
-              "$ENV{INTELOCLSDKROOT}/include"
-        )
-
-    find_library(OpenCL_LIBRARIES
-        opencl
-        PATHS "$ENV{CUDA_PATH}/lib/${_cuda32_64}"
-              "$ENV{ATISTREAMSDKROOT}/lib/${_ati32_64}"
-              "$ENV{ATIINTERNALSTREAMSDKROOT}/lib/${_ati32_64}"
-              "$ENV{INTELOCLSDKROOT}/lib/${_intel32_64}"
-        )
-
-    unset(_cuda32_64)
-    unset(_ati32_64)
-    unset(_intel32_64)
-else (WIN32)
-
-    # Unix style platforms
-    find_library(OpenCL_LIBRARIES OpenCL ENV LD_LIBRARY_PATH)
-
-    get_filename_component(OPENCL_LIB_DIR ${OpenCL_LIBRARIES} PATH)
-    get_filename_component(_OPENCL_INC_CAND ${OPENCL_LIB_DIR}/../../include ABSOLUTE)
-
-    # The AMD SDK currently does not place its headers
-    # in /usr/include, therefore also search relative
-    # to the library
-    find_path(OpenCL_INCLUDE_DIRS CL/cl.h PATHS ${_OPENCL_INC_CAND} "/usr/local/cuda/include")
-
-endif (WIN32)
-
-if (OpenCL_INCLUDE_DIRS)
-    # CL.hpp is not bundled with OpenCL 2.0
-    if (NOT EXISTS "${OpenCL_INCLUDE_DIRS}/CL/cl.hpp")
-        list(APPEND OpenCL_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/cmake/opencl")
+      CHECK_SYMBOL_EXISTS(
+        CL_VERSION_${VERSION}
+        "${OpenCL_INCLUDE_DIR}/CL/cl.h"
+        OPENCL_VERSION_${VERSION})
     endif()
+
+    if(OPENCL_VERSION_${VERSION})
+      string(REPLACE "_" "." VERSION "${VERSION}")
+      set(OpenCL_VERSION_STRING ${VERSION} PARENT_SCOPE)
+      string(REGEX MATCHALL "[0-9]+" version_components "${VERSION}")
+      list(GET version_components 0 major_version)
+      list(GET version_components 1 minor_version)
+      set(OpenCL_VERSION_MAJOR ${major_version} PARENT_SCOPE)
+      set(OpenCL_VERSION_MINOR ${minor_version} PARENT_SCOPE)
+      break()
+    endif()
+  endforeach()
+  CMAKE_POP_CHECK_STATE()
+endfunction()
+
+find_path(OpenCL_INCLUDE_DIR
+  NAMES
+    CL/cl.h OpenCL/cl.h
+  PATHS
+    ENV "PROGRAMFILES(X86)"
+    ENV AMDAPPSDKROOT
+    ENV INTELOCLSDKROOT
+    ENV NVSDKCOMPUTE_ROOT
+    ENV CUDA_PATH
+    ENV ATISTREAMSDKROOT
+  PATH_SUFFIXES
+    include
+    OpenCL/common/inc
+    "AMD APP/include")
+
+_FIND_OPENCL_VERSION()
+
+if(WIN32)
+  if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    find_library(OpenCL_LIBRARY
+      NAMES OpenCL
+      PATHS
+        ENV "PROGRAMFILES(X86)"
+        ENV AMDAPPSDKROOT
+        ENV INTELOCLSDKROOT
+        ENV CUDA_PATH
+        ENV NVSDKCOMPUTE_ROOT
+        ENV ATISTREAMSDKROOT
+      PATH_SUFFIXES
+        "AMD APP/lib/x86"
+        lib/x86
+        lib/Win32
+        OpenCL/common/lib/Win32)
+  elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    find_library(OpenCL_LIBRARY
+      NAMES OpenCL
+      PATHS
+        ENV "PROGRAMFILES(X86)"
+        ENV AMDAPPSDKROOT
+        ENV INTELOCLSDKROOT
+        ENV CUDA_PATH
+        ENV NVSDKCOMPUTE_ROOT
+        ENV ATISTREAMSDKROOT
+      PATH_SUFFIXES
+        "AMD APP/lib/x86_64"
+        lib/x86_64
+        lib/x64
+        OpenCL/common/lib/x64)
+  endif()
+else()
+  find_library(OpenCL_LIBRARY
+    NAMES OpenCL)
 endif()
+
+set(OpenCL_LIBRARIES ${OpenCL_LIBRARY})
+set(OpenCL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIR})
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(OpenCL 
-    "OpenCL not found. Please specify OpenCL_INCLUDE_DIRS and / or OpenCL_LIBRARIES."
-    OpenCL_LIBRARIES OpenCL_INCLUDE_DIRS)
+find_package_handle_standard_args(
+  OpenCL
+  FOUND_VAR OpenCL_FOUND
+  REQUIRED_VARS OpenCL_LIBRARY OpenCL_INCLUDE_DIR
+  VERSION_VAR OpenCL_VERSION_STRING)
 
-if(OpenCL_FOUND)
-  message(STATUS "OpenCL found (includes: ${OpenCL_INCLUDE_DIRS}, libs: ${OpenCL_LIBRARIES})")
-endif()
-
-MARK_AS_ADVANCED(
-  OpenCL_LIBRARIES
-)
+mark_as_advanced(
+  OpenCL_INCLUDE_DIR
+  OpenCL_LIBRARY)

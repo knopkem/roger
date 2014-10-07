@@ -25,8 +25,6 @@ template<typename T> OCLBPC<T>::OCLBPC(KernelInitInfoBase initInfo, OCLMemoryMan
     initInfo(initInfo),
     memoryManager(memMgr),
     bpc(new OCLKernel( KernelInitInfo(initInfo, "oclbpc.cl", "run") ))
-
-
 {
 }
 

@@ -49,7 +49,7 @@ ocl_args_d_t::~ocl_args_d_t()
     }
     if (device)
     {
-        //clReleaseDevice(device);
+        clReleaseDevice(device);
     }
     if (context)
     {
