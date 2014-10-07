@@ -1,0 +1,52 @@
+
+set(${PROJECT_NAME}_HEADERS
+    concurrent_queue.h
+    ocl_platform.h
+    OCLBasic.h
+    OCLBPC.h
+    OCLDataTransferManager.h
+    OCLDecoder.h
+    OCLDeviceManager.h
+    OCLDWT.h
+    OCLDWTForward.h
+    OCLDWTRev.h
+    OCLEncodeDecode.h
+    OCLEncoder.h
+    OCLKernel.h
+    OCLMemoryManager.h
+    OCLQueue.h
+    OCLRGBtoPlanar.h
+    OCLTest.h
+    OCLUtil.h
+)
+
+set(${PROJECT_NAME}_SOURCES
+    main.cpp
+    OCLBasic.cpp
+    OCLBPC.cpp
+    OCLDataTransferManager.cpp
+    OCLDecoder.cpp
+    OCLDeviceManager.cpp
+    OCLDWT.cpp
+    OCLDWTForward.cpp
+    OCLDWTRev.cpp
+    OCLEncodeDecode.cpp
+    OCLEncoder.cpp
+    OCLKernel.cpp
+    OCLMemoryManager.cpp
+    OCLQueue.cpp
+    OCLRGBtoPlanar.cpp
+    OCLTest.cpp
+    OCLUtil.cpp
+)
+
+add_executable(${PROJECT_NAME}
+    ${${PROJECT_NAME}_HEADERS}
+    ${${PROJECT_NAME}_SOURCES}
+)
+
+target_link_libraries(${PROJECT_NAME}
+    ${Boost_LIBRARIES}
+    ${OpenCL_LIBRARIES}
+    ${OpenCV_LIBRARIES}
+)
